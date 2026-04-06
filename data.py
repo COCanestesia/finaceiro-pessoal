@@ -26,24 +26,60 @@ def conectar_google():
 
     return planilha
 
-# -------------------------
-# 📥 CARREGAR DADOS
-# -------------------------
 def carregar_dados():
     planilha = conectar_google()
 
-    # Aba de lançamentos
+    # -------------------------
+    # 📥 ABA DADOS
+    # -------------------------
     aba_dados = planilha.worksheet("Dados")
     dados = aba_dados.get_all_records()
     df_dados = pd.DataFrame(dados)
 
     if not df_dados.empty:
-        # Padroniza nomes das colunas
+        # 🔹 Padroniza colunas
         df_dados.columns = df_dados.columns.str.strip().str.upper()
+
+        # 🔹 Controle de linha
         df_dados["LINHA_SHEET"] = df_dados.index + 2
+
+        # 🔹 DATA
         df_dados["DATA"] = pd.to_datetime(df_dados["DATA"], errors="coerce")
 
-    # Aba de metas
+        # 🔹 VALOR (🔥 principal correção)
+        df_dados["VALOR"] = (
+            df_dados["VALOR"]
+            .astype(str)
+            .str.replace("R$", "", regex=False)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False)
+            .str.strip()
+        )
+
+        df_dados["VALOR"] = pd.to_numeric(df_dados["VALOR"], errors="coerce").fillna(0)
+
+        # 🔹 TEXTO PADRONIZADO
+        df_dados["CLASSIFICAÇÃO"] = (
+            df_dados["CLASSIFICAÇÃO"]
+            .astype(str)
+            .str.upper()
+            .str.strip()
+        )
+
+        df_dados["CATEGORIA"] = (
+            df_dados["CATEGORIA"]
+            .astype(str)
+            .str.strip()
+        )
+
+        # 🔹 LIMPEZA FINAL
+        df_dados = df_dados.dropna(subset=["DATA"])
+        df_dados = df_dados[df_dados["VALOR"] > 0]
+        df_dados = df_dados.drop_duplicates()
+
+    # -------------------------
+    # 📥 ABA META
+    # -------------------------
     aba_meta = planilha.worksheet("Meta")
     metas = aba_meta.get_all_records()
     df_meta = pd.DataFrame(metas)
