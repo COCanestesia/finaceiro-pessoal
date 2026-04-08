@@ -141,6 +141,8 @@ def sistema_financeiro():
             ])
 
             descricao = st.text_input("Descrição")
+            subdescricao = st.text_input("Subdescrição")  # Nova coluna
+        
             # Lista de bancos
             bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
 
@@ -173,6 +175,7 @@ def sistema_financeiro():
                     str(data),
                     mes,
                     descricao,
+                    subdescricao,
                     conta,
                     valor,
                     categoria,
@@ -332,6 +335,9 @@ def sistema_financeiro():
             df.index,
             format_func=lambda x: f"{df.loc[x, 'Titular']} | {df.loc[x, 'Descrição']} | R$ {df.loc[x, 'Valor']}"
         )
+        df.columns = df.columns.str.strip()
+        if "Subdescrição" not in df.columns:
+            df["Subdescrição"] = ""  # cria a coluna vazia se não existir
 
         linha = df.loc[linha_sel]
 
@@ -343,6 +349,7 @@ def sistema_financeiro():
         conta = st.selectbox("Conta", ["ESPÉCIE", "TRANSFERÊNCIA BANCÁRIA"])
         valor = st.number_input("Valor", value=float(linha["Valor"]))
         categoria = st.text_input("Categoria", linha["Categoria"])
+        subdescricao = st.text_input("Subdescrição", linha.get("Subdescrição", ""))
         tipo = st.text_input("Tipo de despesa", linha["Tipo de despesa"])
         classificacao = st.selectbox("Classificação", ["Receita", "Despesa"])
 
@@ -357,6 +364,7 @@ def sistema_financeiro():
                 str(data),
                 mes,
                 descricao,
+                subdescricao,
                 conta,
                 valor,
                 categoria,
