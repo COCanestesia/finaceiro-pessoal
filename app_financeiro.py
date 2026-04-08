@@ -108,11 +108,11 @@ def sistema_financeiro():
     # -------------------------
     if "categorias" not in st.session_state:
         st.session_state.categorias = [
-            "Compras pessoais", "Cigarros", "Taxa de imóvel", "Equipamentos",
-            "Taxa", "Assinaturas", "Alimentação", "Transporte",
-            "Remuneração", "Manutenção", "Moradia", "Cartão de crédito",
-            "Plantões", "Saúde", "Terceirizados", "Educação",
-            "Acordo judicial", "Aporte HCT", "Honorários"
+            "COMPRAS PESSOAIS", "CIGARROS", "TAXA DE IMÓVEL", "EQUIPAMENTOS",
+            "TAXA", "ASSINATURAS", "ALIMENTAÇÃO", "TRANSPORTE",
+            "REMUNERAÇÃO", "MANUTENÇÃO", "MORADIA", "CARTÃO DE CRÉDITO",
+            "PLANTÕES", "SAÚDE", "TERCEIRIZADOS", "EDUCAÇÃO",
+            "ACORDO JUDICIAL", "APORTE HCT", "HONORÁRIOS"
         ]
 
     # -------------------------
