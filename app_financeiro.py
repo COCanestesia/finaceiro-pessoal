@@ -141,7 +141,6 @@ def sistema_financeiro():
             ])
 
             descricao = st.text_input("Descrição")
-            subdescricao = st.text_input("Subdescrição")  # Nova coluna
         
             # Lista de bancos
             bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
@@ -153,17 +152,28 @@ def sistema_financeiro():
             conta = st.selectbox("Conta", contas)
             valor = st.number_input("Valor", min_value=0.0)
 
+            # Inicializar categorias no session_state
+            if "categorias" not in st.session_state:
+                st.session_state.categorias = ["Alimentação", "Transporte", "Lazer"]  # exemplo inicial
+
+            # -----------------------
             # Categoria dinâmica
+            # -----------------------
             opcoes = st.session_state.categorias + ["➕ Nova categoria"]
             categoria = st.selectbox("Categoria", opcoes)
 
             if categoria == "➕ Nova categoria":
                 nova = st.text_input("Nova categoria")
-                if nova and nova not in st.session_state.categorias:
-                    st.session_state.categorias.append(nova)
+    
+                # Só adiciona se o usuário digitar algo
+                if nova:
+                    if nova not in st.session_state.categorias:
+                        st.session_state.categorias.append(nova)
+                        st.success(f"Categoria '{nova}' adicionada!")
+        
+                    # Atualiza o selectbox para mostrar a nova categoria
                     categoria = nova
-                    st.success("Categoria adicionada")
-
+            subcategoria = st.text_input("Subcategoria")  # Nova coluna
             tipo_despesa = st.text_input("Tipo de despesa")
             classificacao = st.selectbox("Classificação", ["Receita", "Despesa"])
 
@@ -175,10 +185,10 @@ def sistema_financeiro():
                     str(data),
                     mes,
                     descricao,
-                    subdescricao,
                     conta,
                     valor,
                     categoria,
+                    subcategoria,
                     tipo_despesa,
                     classificacao
                 ]
@@ -239,16 +249,21 @@ def sistema_financeiro():
                         "Valor", "Categoria", "Tipo de despesa", "Classificação"
                     ]]
 
+                    # Renomear colunas
                     df_final.columns = [
                         "TITULAR", "DATA", "MÊS", "DESCRIÇÃO", "CONTA",
                         "VALOR", "CATEGORIA", "TIPO DE DESPESA", "CLASSIFICAÇÃO"
                     ]
 
+                    # Função para formatar valores em Real
+                    def format_real(x):
+                        return f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+                    # Aplicar apenas na coluna VALOR
+                    df_final["VALOR"] = df_final["VALOR"].apply(format_real)
+
                     st.dataframe(df_final, use_container_width=True)
 
-            # =========================
-            # 📅 ACOMPANHAMENTO DIÁRIO
-            # =========================
             if modo == "📅 Acompanhamento diário":
 
                 st.markdown("## 📅 Acompanhamento Diário")
@@ -278,12 +293,11 @@ def sistema_financeiro():
 
                         tabela = pd.DataFrame({
                             "TITULAR": grupo.get("Titular", ""),
-                            "CLASSIFICAÇÃO": grupo.get("Categoria", ""),
-                            "DESPESAS FIXAS": grupo.get("Descrição", ""),
-                            "CLIENTE / FORNECEDOR": grupo.get("Descrição", ""),
+                            "CATEGORIA": grupo.get("Categoria", ""),
+                            "DESCRIÇÃO": grupo.get("Descrição", ""),
                             "TIPO": grupo.get("Tipo de despesa", ""),
                             "FORMA DE PAGAMENTO": grupo.get("Conta", ""),
-                            "PLANEJADO": 0,
+                            "PLANEJADO": 0,  # Substitua pelo valor real se tiver
                             "EXECUTADO": grupo.get("Valor", 0)
                         })
 
@@ -291,26 +305,29 @@ def sistema_financeiro():
                         total_planejado = tabela["PLANEJADO"].sum()
                         total_executado = tabela["EXECUTADO"].sum()
 
-                        # Colunas repetidas (estilo planilha)
-                        tabela["DIÁRIO PLANEJADO"] = total_planejado
-                        tabela["DIÁRIO EXECUTADO"] = total_executado
+                        # Função para formatar valores em Real
+                        def format_real(x):
+                            return f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+                        tabela["PLANEJADO"] = tabela["PLANEJADO"].apply(format_real)
+                        tabela["EXECUTADO"] = tabela["EXECUTADO"].apply(format_real)
 
                         st.dataframe(tabela, use_container_width=True)
 
-                # =========================
-                # 💰 RESUMO LATERAL
-                # =========================
-                with col2:
+                    # =========================
+                    # 💰 RESUMO LATERAL
+                    # =========================
+                    with col2:
 
-                    diferenca = total_planejado - total_executado
+                        diferenca = total_planejado - total_executado
 
-                    st.markdown("### 💰 Totais do dia")
+                        st.markdown("### 💰 Totais do dia")
 
-                    st.metric("Planejado", f"R$ {total_planejado:,.2f}")
-                    st.metric("Executado", f"R$ {total_executado:,.2f}")
-                    st.metric("Diferença", f"R$ {diferenca:,.2f}")
+                        st.metric("Planejado", format_real(total_planejado))
+                        st.metric("Executado", format_real(total_executado))
+                        st.metric("Diferença", format_real(diferenca))
 
-                st.markdown("---")
+                    st.markdown("---")
             
     # ----------------------
     # ✏️ ABA 3 EDITAR
