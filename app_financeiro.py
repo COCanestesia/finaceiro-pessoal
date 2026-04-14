@@ -1,9 +1,7 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
-
-from data import carregar_dados
-from finance import calcular_saldos
+from data import carregar_dados, calcular_saldos
 
 from database import (
     inserir_transacao,
@@ -63,85 +61,22 @@ def sistema_financeiro():
 
         return avisos
 
-
     # =========================
-    # 💰 SALDOS NO TOPO (ROBUSTO)
+    # 💰 SALDO (TEMPO REAL)
     # =========================
+    saldos = calcular_saldos(df)
 
-    df_topo = carregar_dados()
+    colunas = st.columns(len(saldos))
 
-    if isinstance(df_topo, tuple):
-        df_topo = df_topo[0]
+    for i, (nome, saldo) in enumerate(saldos.items()):
 
-    if df_topo.empty:
-        st.info("Sem dados ainda")
+        icone = "💵" if "Dinheiro" in nome else "🏦"
+        cor = "🔴" if saldo < 0 else "🟢"
 
-    else:
-
-        # 🔥 padronização segura
-        df_topo.columns = [str(c).strip().lower() for c in df_topo.columns]
-
-        # 🔥 garante colunas
-        if "valor" not in df_topo.columns:
-            st.error("Coluna 'valor' não encontrada")
-            st.stop()
-
-        if "classificacao" not in df_topo.columns:
-            df_topo["classificacao"] = "DESPESA"
-
-        if "conta" not in df_topo.columns:
-            df_topo["conta"] = "ESPÉCIE"
-
-        # 🔥 CONVERSÃO FORTE (ESSENCIAL)
-        df_topo["valor"] = (
-            df_topo["valor"]
-            .astype(str)
-            .str.replace(".", "", regex=False)
-            .str.replace(",", ".", regex=False)
+        colunas[i].markdown(
+            f"### {icone} {nome}\n{cor} R$ {saldo:,.2f}"
         )
-
-        df_topo["valor"] = pd.to_numeric(df_topo["valor"], errors="coerce").fillna(0)
-
-        bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
-
-        saldos = {b: 0 for b in bancos}
-        saldos["Dinheiro (Caixa físico)"] = 0
-
-        for _, row in df_topo.iterrows():
-
-            valor = float(row["valor"])
-
-            tipo = str(row["classificacao"]).strip().upper()
-            conta = str(row["conta"] or "")
-
-            if tipo == "DESPESA":
-                valor = -abs(valor)
-
-            if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
-                try:
-                    banco = conta.split("(")[1].replace(")", "").strip()
-
-                    if banco in saldos:
-                        saldos[banco] += valor
-                    else:
-                        saldos["Dinheiro (Caixa físico)"] += valor
-
-                except:
-                    saldos["Dinheiro (Caixa físico)"] += valor
-            else:
-                saldos["Dinheiro (Caixa físico)"] += valor
-
-        # 🔥 EXIBIÇÃO
-        colunas = st.columns(len(saldos))
-
-        for i, (nome, saldo) in enumerate(saldos.items()):
-
-            icone = "💵" if "Dinheiro" in nome else "🏦"
-            cor = "🔴" if saldo < 0 else "🟢"
-
-            colunas[i].markdown(
-                f"### {icone} {nome}\n{cor} R$ {saldo:,.2f}"
-            )
+    
             
     # -------------------------
     # 📌 CATEGORIAS
