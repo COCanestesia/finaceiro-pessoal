@@ -466,7 +466,7 @@ def sistema_financeiro():
         if "Subdescrição" not in df.columns:
             df["Subdescrição"] = ""  # cria a coluna vazia se não existir
 
-        linha = df.loc[linha_sel]
+        linha = df.iloc[linha_sel]
 
         # 🔥 TRATAR VALORES (evita erro com NaN)
         titular_val = linha.get("Titular", "")
@@ -532,27 +532,27 @@ def sistema_financeiro():
 
         if st.button("💾 Salvar alteração"):
 
-            id_linha = int(linha["id"])  # 🔥 agora é ID do banco
+            id_linha = int(linha["id"])
 
-        novos_dados = [
-            titular,
-            str(data),
-            mes,
-            descricao,
-            conta,
-            valor,
-            categoria,
-            subcategoria,
-            tipo,
-            classificacao,
-            str(data_vencimento),  # se tiver no seu form
-            status                 # se tiver no seu form
-        ]
+            novos_dados = [
+                titular,
+                str(data),
+                mes,
+                descricao,
+                conta,
+                valor,
+                categoria,
+                subcategoria,
+                tipo,
+                classificacao,
+                str(data_vencimento),
+                status
+            ]
 
-    atualizar_transacao(id_linha, novos_dados)
+            atualizar_transacao(id_linha, novos_dados)
 
-    st.success("Alteração salva no banco!")
-    st.rerun()
+            st.success("Alteração salva no banco!")
+            st.rerun()
 
     # -------------------------
     # 💰 ABA 4 - RESUMO DE SALDOS
