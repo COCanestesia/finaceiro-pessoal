@@ -5,44 +5,44 @@ from database import inserir_transacao, buscar_transacoes
 from datetime import datetime
 from database import atualizar_transacao
 
-# -------------------------
-# 📥 CARREGAR DADOS
-# -------------------------
 def carregar_dados():
-    from database import buscar_transacoes
-    import pandas as pd
 
     df = buscar_transacoes()
 
-    # 🔥 MANTER COMPATIBILIDADE COM SEU SISTEMA
     if df.empty:
         return df
 
     # =========================
-    # 🧾 PADRONIZAR COLUNAS
+    # 🧾 LIMPAR COLUNAS
     # =========================
     df.columns = df.columns.str.strip()
 
-    # Simular linha do Sheets (pra não quebrar seu editar)
-    df["linha_sheet"] = df.index + 2
+    # =========================
+    # 🔥 PADRONIZAÇÃO CRÍTICA
+    # =========================
 
-    # =========================
-    # 💰 VALOR
-    # =========================
+    # VALOR (OBRIGATÓRIO SER NÚMERO)
     if "valor" in df.columns:
         df["Valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
-    elif "Valor" in df.columns:
+    else:
         df["Valor"] = pd.to_numeric(df["Valor"], errors="coerce").fillna(0)
 
+    # CLASSIFICAÇÃO (Receita / Despesa)
+    if "classificacao" in df.columns:
+        df["Classificação"] = df["classificacao"]
+    else:
+        df["Classificação"] = df.get("Classificação", "Despesa")
+
+    # CONTA
+    if "conta" in df.columns:
+        df["Conta"] = df["conta"]
+
     # =========================
-    # 📅 DATA
+    # 📅 DATAS
     # =========================
     if "data" in df.columns:
         df["Data"] = pd.to_datetime(df["data"], errors="coerce")
 
-    # =========================
-    # 📅 DATA VENCIMENTO
-    # =========================
     if "data_vencimento" in df.columns:
         df["Data Vencimento"] = pd.to_datetime(df["data_vencimento"], errors="coerce")
     else:
@@ -51,31 +51,33 @@ def carregar_dados():
     # =========================
     # 📌 STATUS
     # =========================
-    if "status" not in df.columns:
-        df["Status"] = "Pendente"
-    else:
+    if "status" in df.columns:
         df["Status"] = df["status"]
+    else:
+        df["Status"] = "Pendente"
 
     # =========================
-    # 🧠 MAPEAR NOMES (CRÍTICO)
+    # 🧠 OUTROS CAMPOS (compatibilidade UI)
     # =========================
     mapa = {
         "titular": "Titular",
         "mes": "Mês",
         "descricao": "Descrição",
-        "conta": "Conta",
-        "categoria": "Categoria",
         "subcategoria": "Subcategoria",
-        "tipo_despesa": "Tipo de despesa",
-        "classificacao": "Classificação"
+        "tipo_despesa": "Tipo de despesa"
     }
 
     for col_banco, col_app in mapa.items():
         if col_banco in df.columns:
             df[col_app] = df[col_banco]
 
-    return df
+    # =========================
+    # 🔥 ID PARA EDITAR (IMPORTANTE)
+    # =========================
+    if "id" not in df.columns:
+        df["id"] = df.index
 
+    return df
 # -------------------------
 # 💾 SALVAR DADOS
 # -------------------------
@@ -449,35 +451,48 @@ def sistema_financeiro():
         if df_topo.empty:
             st.info("Sem dados ainda")
         else:
+
             df_topo.columns = df_topo.columns.str.strip()
-            df_topo["Data"] = pd.to_datetime(df_topo["Data"], errors="coerce")
-            
+
+            # 🔥 GARANTIR TIPOS CERTOS
+            df_topo["Valor"] = pd.to_numeric(df_topo["Valor"], errors="coerce").fillna(0)
+            df_topo["Classificação"] = df_topo["Classificação"].fillna("Despesa")
+            df_topo["Conta"] = df_topo["Conta"].fillna("ESPÉCIE")
+
             bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
             saldos = {banco: 0 for banco in bancos}
             saldos["Dinheiro (Caixa físico)"] = 0
 
             for _, row in df_topo.iterrows():
-                valor = row["Valor"]
-                tipo = row["Classificação"]
-                conta = row["Conta"]
 
+                valor = float(row["Valor"])
+                tipo = str(row["Classificação"])
+                conta = str(row["Conta"])
+
+                # 🔥 despesa vira negativo
                 if tipo == "Despesa":
                     valor = -valor
 
-                if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta and ")" in conta:
-                    banco = conta.split("(")[1].replace(")", "")
-                    if banco in bancos:
+                # 🔥 banco
+                if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
+                    banco = conta.split("(")[1].replace(")", "").strip()
+
+                    if banco in saldos:
                         saldos[banco] += valor
                     else:
                         saldos["Dinheiro (Caixa físico)"] += valor
                 else:
                     saldos["Dinheiro (Caixa físico)"] += valor
 
-            # Exibir colunas
-            colunas = st.columns(len(saldos))
-            for i, (nome, saldo) in enumerate(saldos.items()):
-                icone = "💵" if nome == "Dinheiro (Caixa físico)" else "🏦"
-                colunas[i].metric(f"{icone} {nome}", f"R$ {saldo:,.2f}")
+        # 🔥 EXIBIR
+        colunas = st.columns(len(saldos))
 
-            # Total geral
-            st.metric("💼 Total Geral", f"R$ {sum(saldos.values()):,.2f}")
+        for i, (nome, saldo) in enumerate(saldos.items()):
+            icone = "💵" if nome == "Dinheiro (Caixa físico)" else "🏦"
+
+            if saldo < 0:
+                colunas[i].metric(f"{icone} {nome}", f"🔴 R$ {saldo:,.2f}")
+            else:
+                colunas[i].metric(f"{icone} {nome}", f"🟢 R$ {saldo:,.2f}")
+
+        st.metric("💼 Total Geral", f"R$ {sum(saldos.values()):,.2f}")
