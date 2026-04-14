@@ -64,24 +64,35 @@ def sistema_financeiro():
         return avisos
 
     # =========================
-    # 💰 SALDO (TEMPO REAL)
+    # 💰 SALDO (SEGURO)
     # =========================
-    saldos = calcular_saldos(df_topo)
 
-    if not saldos:
-        st.warning("Sem saldos para exibir")
+    df, meta = carregar_dados()
+
+    if df is None or df.empty:
+        st.warning("Sem dados ainda")
         return
 
-    colunas = st.columns(len(saldos))
+    saldos = calcular_saldos(df)
 
-    for i, (nome, saldo) in enumerate(saldos.items()):
+    if not saldos:
+        st.warning("Sem saldo para exibir")
+    else:
 
-        icone = "💵" if "Dinheiro" in nome else "🏦"
-        cor = "🔴" if saldo < 0 else "🟢"
+        qtd = len(saldos)
 
-        colunas[i].markdown(
-            f"### {icone} {nome}\n{cor} R$ {saldo:,.2f}"
-        )
+        if qtd > 0:
+            cols = st.columns(qtd)
+
+            for i, (nome, saldo) in enumerate(saldos.items()):
+
+                icone = "💵" if "Dinheiro" in nome else "🏦"
+                cor = "🔴" if saldo < 0 else "🟢"
+
+                cols[i].metric(
+                    label=f"{icone} {nome}",
+                    value=f"R$ {saldo:,.2f}"
+                )
     
             
     # -------------------------
@@ -110,88 +121,130 @@ def sistema_financeiro():
     with tab1:
         st.subheader("Adicionar lançamento")
 
-        # Inicializar categorias
+        # -------------------------
+        # 📌 CATEGORIAS INICIAIS
+        # -------------------------
         if "categorias" not in st.session_state:
-            st.session_state.categorias = ["Alimentação", "Transporte", "Lazer"]
+            st.session_state.categorias = [
+                "Alimentação", "Transporte", "Lazer"
+            ]
 
         with st.form("form_dados", clear_on_submit=True):
 
-            titular = st.text_input("titular")
-            data = st.date_input("data")
+            # -------------------------
+            # 📥 CAMPOS
+            # -------------------------
+            titular = st.text_input("Titular")
+            data = st.date_input("Data")
 
-            mes = st.selectbox("mês", [
+            mes = st.selectbox("Mês", [
                 "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
                 "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
             ])
 
-            descricao = st.text_input("descrição")
-    
-            # Lista de bancos
-            bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
+            descricao = st.text_input("Descrição")
 
-            # Contas possíveis
-            contas = ["ESPÉCIE"] + [f"TRANSFERÊNCIA BANCÁRIA ({banco})" for banco in bancos]
+            # -------------------------
+            # 🏦 CONTAS
+            # -------------------------
+            bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
+            contas = ["ESPÉCIE"] + [f"TRANSFERÊNCIA BANCÁRIA ({b})" for b in bancos]
 
             conta = st.selectbox("Conta", contas)
-            valor = st.number_input("valor", min_value=0.0)
-            # NOVOS CAMPOS
-            data_vencimento = st.date_input("data de vencimento", value=datetime.today().date())
 
-            status = st.selectbox("status", ["Pendente", "Pago"])
+            # -------------------------
+            # 💰 VALOR (CRÍTICO)
+            # -------------------------
+            valor = st.number_input("Valor", min_value=0.0, format="%.2f")
 
-            # -----------------------
-            # ✅ CATEGORIA DINÂMICA (DENTRO DO SELECT)
-            # -----------------------
-            opcoes = st.session_state.categorias + ["➕ nova categoria"]
+            # -------------------------
+            # 📅 VENCIMENTO + STATUS
+            # -------------------------
+            data_vencimento = st.date_input(
+                "Data de vencimento",
+                value=datetime.today().date()
+            )
+
+            status = st.selectbox("Status", ["Pendente", "Pago"])
+
+            # -------------------------
+            # 📌 CATEGORIA DINÂMICA
+            # -------------------------
+            opcoes = st.session_state.categorias + ["➕ Nova categoria"]
 
             categoria = st.selectbox("Categoria", opcoes)
 
-            # Campo só aparece se escolher nova categoria
             nova_categoria = None
-            if categoria == "➕ nova categoria":
+            if categoria == "➕ Nova categoria":
                 nova_categoria = st.text_input("Digite a nova categoria")
 
-            subcategoria = st.text_input("subcategoria")
-            tipo_despesa = st.text_input("tipo de despesa")
+            subcategoria = st.text_input("Subcategoria")
+            tipo_despesa = st.text_input("Tipo de despesa")
 
-            classificacao = st.selectbox("classificação", ["Receita", "Despesa"])
+            classificacao = st.selectbox(
+                "Classificação",
+                ["Receita", "Despesa"]
+                )
 
             submit = st.form_submit_button("Salvar")
 
-            # -----------------------
+            # -------------------------
             # 💾 SALVAR
-            # -----------------------
+            # -------------------------
             if submit:
 
-                # 🔥 Trata nova categoria
-                if categoria == "➕ nova categoria":
+                # 🔥 VALIDAÇÕES
+                if not descricao:
+                    st.warning("Digite uma descrição")
+                    st.stop()
+
+                if not titular:
+                    st.warning("Digite o titular")
+                    st.stop()
+
+                # 🔥 TRATA NOVA CATEGORIA
+                if categoria == "➕ Nova categoria":
                     if nova_categoria:
                         if nova_categoria not in st.session_state.categorias:
                             st.session_state.categorias.append(nova_categoria)
-                            categoria = nova_categoria
-                        else:
-                            categoria = nova_categoria
+                        categoria = nova_categoria
                     else:
                         st.warning("Digite o nome da nova categoria!")
                         st.stop()
 
+                # 🔥 GARANTE VALOR LIMPO (ESSENCIAL)
+                try:
+                    valor_limpo = float(valor)
+                except:
+                    valor_limpo = 0.0
+
+                # 🔥 PADRONIZA CLASSIFICAÇÃO
+                classificacao = classificacao.upper()
+
+                # -------------------------
+                # 📦 LINHA FINAL
+                # -------------------------
                 linha = [
                     titular,
                     str(data),
                     mes,
                     descricao,
                     conta,
-                    valor,
+                    valor_limpo,
                     categoria,
                     subcategoria,
                     tipo_despesa,
                     classificacao,
-                    str(data_vencimento),  # NOVO
-                    status                 # NOVO 
+                    str(data_vencimento),
+                    status
                 ]
 
+                # -------------------------
+                # 💾 SALVAR NO BANCO
+                # -------------------------
                 inserir_transacao(linha)
-                st.success("Salvo no banco de dados!")
+
+                st.success("✅ Lançamento salvo com sucesso!")
                 st.rerun()
 
     # -------------------------
@@ -200,22 +253,41 @@ def sistema_financeiro():
     with tab2:
         st.subheader("📋 Consulta de dados")
 
-        df = carregar_dados()
+        df, _ = carregar_dados()
 
         if df.empty:
             st.info("Sem dados ainda")
-        else:
-            df.columns = df.columns.str.strip()
-            df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
 
-            # -------------------------
-            # FILTROS
-            # -------------------------
+        else:
+            # =========================
+            # 🧠 GARANTIA DE COLUNAS (CÉREBRO SAFE)
+            # =========================
+            df = df.copy()
+
+            df["Data"] = pd.to_datetime(df["data"], errors="coerce")
+            df["Titular"] = df.get("titular", "")
+            df["Mês"] = df.get("mes", "")
+            df["Descrição"] = df.get("descricao", "")
+            df["Conta"] = df.get("conta", "")
+            df["Valor"] = df.get("valor", 0)
+            df["Categoria"] = df.get("categoria", "")
+            df["Tipo de despesa"] = df.get("tipo_despesa", "")
+            df["Classificação"] = df.get("classificacao", "")
+
+            # remove datas inválidas
+            df = df.dropna(subset=["Data"])
+
+            # =========================
+            # 📊 FILTROS
+            # =========================
             df["Ano"] = df["Data"].dt.year
             df["Mes_num"] = df["Data"].dt.month
-
+ 
             col1, col2 = st.columns(2)
-            ano = col1.selectbox("Ano", sorted(df["Ano"].dropna().unique()))
+
+            anos_validos = sorted(df["Ano"].dropna().unique())
+            ano = col1.selectbox("Ano", anos_validos)
+
             mes = col2.selectbox("Mês", ["Todos"] + list(range(1, 13)))
 
             if mes == "Todos":
@@ -223,9 +295,9 @@ def sistema_financeiro():
             else:
                 df_filtrado = df[(df["Ano"] == ano) & (df["Mes_num"] == mes)]
 
-            # -------------------------
-            # 🎯 SELETOR DE MODO
-            # -------------------------
+            # =========================
+            # 🎯 MODO VISUALIZAÇÃO
+            # =========================
             modo = st.radio(
                 "Visualização",
                 ["📋 Tabela normal", "📅 Acompanhamento diário"],
@@ -240,27 +312,31 @@ def sistema_financeiro():
                 if df_filtrado.empty:
                     st.warning("Sem dados")
                 else:
+
                     df_final = df_filtrado[[
                         "Titular", "Data", "Mês", "Descrição", "Conta",
                         "Valor", "Categoria", "Tipo de despesa", "Classificação"
-                    ]]
+                    ]].copy()
 
-                    # Renomear colunas
                     df_final.columns = [
                         "TITULAR", "DATA", "MÊS", "DESCRIÇÃO", "CONTA",
                         "VALOR", "CATEGORIA", "TIPO DE DESPESA", "CLASSIFICAÇÃO"
                     ]
 
-                    # Função para formatar valores em Real
                     def format_real(x):
-                        return f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                        try:
+                            return f"R$ {float(x):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                        except:
+                            return "R$ 0,00"
 
-                    # Aplicar apenas na coluna VALOR
                     df_final["VALOR"] = df_final["VALOR"].apply(format_real)
 
                     st.dataframe(df_final, use_container_width=True)
 
-            if modo == "📅 Acompanhamento diário":
+            # =========================
+            # 📅 DIÁRIO
+            # =========================
+            else:
 
                 st.markdown("## 📅 Acompanhamento Diário")
 
@@ -268,13 +344,10 @@ def sistema_financeiro():
 
                 for data, grupo in df_filtrado.groupby("Data"):
 
-                    # =========================
-                    # 📅 VENCIMENTO (TÍTULO DO DIA)
-                    # =========================
                     st.markdown(
                         f"""
                         <div style='background-color:#d9e1f2;padding:10px;border-radius:8px'>
-                            <b>📅 Vencimento: {data.strftime('%d/%m/%Y')}</b>
+                            <b>📅 Data: {data.strftime('%d/%m/%Y')}</b>
                         </div>
                         """,
                         unsafe_allow_html=True
@@ -282,26 +355,21 @@ def sistema_financeiro():
 
                     col1, col2 = st.columns([4, 1])
 
-                    # =========================
-                    # 📋 TABELA DO DIA
-                    # =========================
                     with col1:
 
                         tabela = pd.DataFrame({
-                            "TITULAR": grupo.get("Titular", ""),
-                            "CATEGORIA": grupo.get("Categoria", ""),
-                            "DESCRIÇÃO": grupo.get("Descrição", ""),
-                            "TIPO": grupo.get("Tipo de despesa", ""),
-                            "FORMA DE PAGAMENTO": grupo.get("Conta", ""),
-                            "PLANEJADO": 0,  # Substitua pelo valor real se tiver
-                            "EXECUTADO": grupo.get("Valor", 0)
+                            "TITULAR": grupo["Titular"],
+                            "CATEGORIA": grupo["Categoria"],
+                            "DESCRIÇÃO": grupo["Descrição"],
+                            "TIPO": grupo["Tipo de despesa"],
+                            "FORMA DE PAGAMENTO": grupo["Conta"],
+                            "PLANEJADO": 0,
+                            "EXECUTADO": grupo["Valor"]
                         })
 
-                        # Totais do dia
                         total_planejado = tabela["PLANEJADO"].sum()
                         total_executado = tabela["EXECUTADO"].sum()
 
-                        # Função para formatar valores em Real
                         def format_real(x):
                             return f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
@@ -310,17 +378,12 @@ def sistema_financeiro():
 
                         st.dataframe(tabela, use_container_width=True)
 
-                    # =========================
-                    # 💰 RESUMO LATERAL
-                    # =========================
                     with col2:
-
-                        diferenca = total_planejado - total_executado
 
                         st.markdown("### 💰 Totais do dia")
 
                         st.metric("Planejado", format_real(total_planejado))
                         st.metric("Executado", format_real(total_executado))
-                        st.metric("Diferença", format_real(diferenca))
+                        st.metric("Diferença", format_real(total_planejado - total_executado))
 
                     st.markdown("---")

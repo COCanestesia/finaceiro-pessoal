@@ -3,7 +3,7 @@ from database import buscar_transacoes, buscar_metas
 
 
 # =========================
-# 🧠 CÉREBRO DO SISTEMA
+# 🧠 CÉREBRO
 # =========================
 def carregar_dados():
 
@@ -15,46 +15,31 @@ def carregar_dados():
 
     df = df.copy()
 
-    # =========================
-    # 🧼 PADRONIZA COLUNAS
-    # =========================
+    # padroniza colunas
     df.columns = [str(c).strip().lower() for c in df.columns]
 
-    # =========================
-    # 💰 VALOR (ROBUSTO)
-    # =========================
-    df["valor"] = df.get("valor", 0)
-
+    # valor seguro
     df["valor"] = (
-        df["valor"]
+        df.get("valor", 0)
         .astype(str)
         .str.replace(".", "", regex=False)
         .str.replace(",", ".", regex=False)
     )
-
     df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
 
-    # =========================
-    # 📌 CLASSIFICAÇÃO
-    # =========================
-    df["classificacao"] = df.get("classificacao", "DESPESA")
+    # classificação
     df["classificacao"] = (
-        df["classificacao"]
+        df.get("classificacao", "DESPESA")
         .fillna("DESPESA")
         .astype(str)
         .str.upper()
         .str.strip()
     )
 
-    # =========================
-    # 🏦 CONTA
-    # =========================
-    df["conta"] = df.get("conta", "ESPÉCIE")
-    df["conta"] = df["conta"].fillna("ESPÉCIE").astype(str)
+    # conta
+    df["conta"] = df.get("conta", "ESPÉCIE").fillna("ESPÉCIE").astype(str)
 
-    # =========================
-    # 📅 DATAS
-    # =========================
+    # datas
     df["data"] = pd.to_datetime(df.get("data"), errors="coerce")
     df["data_vencimento"] = pd.to_datetime(df.get("data_vencimento"), errors="coerce")
 
@@ -62,35 +47,23 @@ def carregar_dados():
 
 
 # =========================
-# 💰 SALDO (CÉREBRO)
+# 💰 SALDO (TEMPO REAL)
 # =========================
 def calcular_saldos(df):
 
     if df is None or df.empty:
         return {}
 
-    # garante segurança total
-    df = df.copy()
-
-    if "valor" not in df.columns:
-        df["valor"] = 0
-
-    if "classificacao" not in df.columns:
-        df["classificacao"] = "DESPESA"
-
-    if "conta" not in df.columns:
-        df["conta"] = "ESPÉCIE"
-
     bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
 
-    saldos = {b: 0 for b in bancos}
-    saldos["Dinheiro (Caixa físico)"] = 0
+    saldos = {b: 0.0 for b in bancos}
+    saldos["Dinheiro (Caixa físico)"] = 0.0
 
     for _, row in df.iterrows():
 
         valor = float(row["valor"])
 
-        if str(row["classificacao"]).upper() == "DESPESA":
+        if row["classificacao"] == "DESPESA":
             valor = -abs(valor)
 
         conta = str(row["conta"])
@@ -103,21 +76,10 @@ def calcular_saldos(df):
                     saldos[banco] += valor
                 else:
                     saldos["Dinheiro (Caixa físico)"] += valor
+
             except:
                 saldos["Dinheiro (Caixa físico)"] += valor
         else:
             saldos["Dinheiro (Caixa físico)"] += valor
 
     return saldos
-
-
-# =========================
-# 💾 SALVAR
-# =========================
-from database import inserir_transacao, atualizar_transacao
-
-def salvar_dados(linha):
-    inserir_transacao(linha)
-
-def atualizar_dados(id_linha, novos_dados):
-    atualizar_transacao(id_linha, novos_dados)
