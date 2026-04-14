@@ -18,51 +18,66 @@ def carregar_dados():
     df.columns = df.columns.str.strip()
 
     # =========================
-    # 🔥 PADRONIZAÇÃO CRÍTICA
+    # 🔥 VALOR (SEMPRE NÚMERO)
     # =========================
-
-    # VALOR (OBRIGATÓRIO SER NÚMERO)
     if "valor" in df.columns:
         df["Valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
-    else:
+    elif "Valor" in df.columns:
         df["Valor"] = pd.to_numeric(df["Valor"], errors="coerce").fillna(0)
-
-    # CLASSIFICAÇÃO (Receita / Despesa)
-    if "classificacao" in df.columns:
-        df["Classificação"] = df["classificacao"]
     else:
-        df["Classificação"] = df.get("Classificação", "Despesa")
+        df["Valor"] = 0
 
-    # CONTA
+
+    # =========================
+    # 📌 CLASSIFICAÇÃO
+    # =========================
+    if "classificacao" in df.columns:
+        df["Classificação"] = df["classificacao"].fillna("Despesa")
+    else:
+        df["Classificação"] = "Despesa"
+
+
+    # =========================
+    # 🏦 CONTA
+    # =========================
     if "conta" in df.columns:
-        df["Conta"] = df["conta"]
+        df["Conta"] = df["conta"].fillna("ESPÉCIE")
+    else:
+        df["Conta"] = "ESPÉCIE"
+
 
     # =========================
     # 📅 DATAS
     # =========================
     if "data" in df.columns:
         df["Data"] = pd.to_datetime(df["data"], errors="coerce")
+    else:
+        df["Data"] = pd.NaT
+
 
     if "data_vencimento" in df.columns:
         df["Data Vencimento"] = pd.to_datetime(df["data_vencimento"], errors="coerce")
     else:
         df["Data Vencimento"] = pd.NaT
 
+
     # =========================
     # 📌 STATUS
     # =========================
     if "status" in df.columns:
-        df["Status"] = df["status"]
+        df["Status"] = df["status"].fillna("Pendente")
     else:
         df["Status"] = "Pendente"
 
+
     # =========================
-    # 🧠 OUTROS CAMPOS (compatibilidade UI)
+    # 🧠 OUTROS CAMPOS
     # =========================
     mapa = {
         "titular": "Titular",
         "mes": "Mês",
         "descricao": "Descrição",
+        "categoria": "Categoria",
         "subcategoria": "Subcategoria",
         "tipo_despesa": "Tipo de despesa"
     }
@@ -71,8 +86,9 @@ def carregar_dados():
         if col_banco in df.columns:
             df[col_app] = df[col_banco]
 
+
     # =========================
-    # 🔥 ID PARA EDITAR (IMPORTANTE)
+    # 🔑 ID (EDITAR FUNCIONAR)
     # =========================
     if "id" not in df.columns:
         df["id"] = df.index
