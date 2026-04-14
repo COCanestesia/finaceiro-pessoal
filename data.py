@@ -3,70 +3,133 @@ from database import buscar_transacoes, buscar_metas, inserir_transacao, atualiz
 
 
 # =========================
-# 📥 CARREGAR DADOS (DASHBOARD)
+# 📥 CARREGAR DADOS (ROBUSTO)
 # =========================
 def carregar_dados():
 
-    df_dados = buscar_transacoes()
+    df = buscar_transacoes()
     df_meta = buscar_metas()
 
-    if df_dados.empty:
-        return df_dados, df_meta
+    if df is None or df.empty:
+        return pd.DataFrame(), df_meta
+
+    df = df.copy()
 
     # =========================
-    # 🧹 PADRONIZAÇÃO FORTE
+    # 🧹 PADRONIZA COLUNAS
     # =========================
-    df_dados.columns = [
-        str(c).strip().lower()
-        for c in df_dados.columns
-    ]
+    df.columns = [str(c).strip().lower() for c in df.columns]
 
     # =========================
-    # 🔥 VALOR
+    # 💰 VALOR (FORÇADO SEGURO)
     # =========================
-    if "valor" in df_dados.columns:
-        df_dados["valor"] = pd.to_numeric(df_dados["valor"], errors="coerce").fillna(0)
+    if "valor" not in df.columns:
+        df["valor"] = 0
+
+    df["valor"] = (
+        df["valor"]
+        .astype(str)
+        .str.replace(".", "", regex=False)
+        .str.replace(",", ".", regex=False)
+    )
+
+    df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
 
     # =========================
-    # 🔥 CLASSIFICAÇÃO
+    # 📌 CLASSIFICAÇÃO
     # =========================
-    if "classificacao" in df_dados.columns:
-        df_dados["classificacao"] = df_dados["classificacao"].astype(str).str.upper().str.strip()
+    if "classificacao" not in df.columns:
+        df["classificacao"] = "DESPESA"
+
+    df["classificacao"] = (
+        df["classificacao"]
+        .fillna("DESPESA")
+        .astype(str)
+        .str.upper()
+        .str.strip()
+    )
+
+    # =========================
+    # 🏦 CONTA
+    # =========================
+    if "conta" not in df.columns:
+        df["conta"] = "ESPÉCIE"
+
+    df["conta"] = df["conta"].fillna("ESPÉCIE").astype(str)
+
+    # =========================
+    # 📅 DATAS SEGURAS
+    # =========================
+    if "data" not in df.columns:
+        df["data"] = pd.NaT
     else:
-        df_dados["classificacao"] = "DESPESA"
+        df["data"] = pd.to_datetime(df["data"], errors="coerce")
+
+    if "data_vencimento" not in df.columns:
+        df["data_vencimento"] = pd.NaT
+    else:
+        df["data_vencimento"] = pd.to_datetime(df["data_vencimento"], errors="coerce")
 
     # =========================
-    # 🔥 CONTA
+    # 📌 STATUS
     # =========================
-    if "conta" in df_dados.columns:
-        df_dados["conta"] = df_dados["conta"].astype(str).fillna("ESPÉCIE")
+    if "status" not in df.columns:
+        df["status"] = "PENDENTE"
 
-    # =========================
-    # 🔥 DATA
-    # =========================
-    if "data" in df_dados.columns:
-        df_dados["data"] = pd.to_datetime(df_dados["data"], errors="coerce")
+    df["status"] = df["status"].fillna("PENDENTE").astype(str)
 
-    # =========================
-    # 🔥 DATA VENCIMENTO
-    # =========================
-    if "data_vencimento" in df_dados.columns:
-        df_dados["data_vencimento"] = pd.to_datetime(df_dados["data_vencimento"], errors="coerce")
+    return df, df_meta
 
-    # =========================
-    # 🔥 OUTROS CAMPOS
-    # =========================
-    for col in ["titular", "mes", "descricao", "categoria", "subcategoria", "tipo_despesa", "status"]:
-        if col in df_dados.columns:
-            df_dados[col] = df_dados[col].astype(str)
 
-    # =========================
-    # 🔥 LIMPEZA FINAL
-    # =========================
-    df_dados = df_dados.dropna(subset=["data"])
-    df_dados = df_dados.drop_duplicates()
+# =========================
+# 💰 SALDO (ESTILO BANCO)
+# =========================
+def calcular_saldos(df):
 
-    return df_dados, df_meta
+    if df is None or df.empty:
+        return {}
+
+    df = df.copy()
+
+    if "valor" not in df.columns:
+        return {}
+
+    if "classificacao" not in df.columns:
+        df["classificacao"] = "DESPESA"
+
+    if "conta" not in df.columns:
+        df["conta"] = "ESPÉCIE"
+
+    bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
+
+    saldos = {b: 0 for b in bancos}
+    saldos["Dinheiro (Caixa físico)"] = 0
+
+    for _, row in df.iterrows():
+
+        try:
+            valor = float(row["valor"])
+        except:
+            valor = 0
+
+        if str(row["classificacao"]).upper() == "DESPESA":
+            valor = -abs(valor)
+
+        conta = str(row["conta"])
+
+        if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
+            try:
+                banco = conta.split("(")[1].replace(")", "").strip()
+                if banco in saldos:
+                    saldos[banco] += valor
+                else:
+                    saldos["Dinheiro (Caixa físico)"] += valor
+            except:
+                saldos["Dinheiro (Caixa físico)"] += valor
+        else:
+            saldos["Dinheiro (Caixa físico)"] += valor
+
+    return saldos
 
 
 # =========================

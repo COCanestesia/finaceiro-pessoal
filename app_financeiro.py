@@ -1,110 +1,16 @@
-# app_financeiro.py
 import pandas as pd
 import streamlit as st
-from database import inserir_transacao, buscar_transacoes
 from datetime import datetime
-from database import atualizar_transacao
 
-def carregar_dados():
+from data import carregar_dados
+from finance import calcular_saldos
 
-    df = buscar_transacoes()
-
-    if df.empty:
-        return df
-
-    # =========================
-    # 🧾 LIMPAR COLUNAS
-    # =========================
-    df.columns = df.columns.str.strip()
-
-    # =========================
-    # 🔥 VALOR (SEMPRE NÚMERO)
-    # =========================
-    if "valor" in df.columns:
-        df["Valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
-    elif "Valor" in df.columns:
-        df["Valor"] = pd.to_numeric(df["Valor"], errors="coerce").fillna(0)
-    else:
-        df["Valor"] = 0
-
-
-    # =========================
-    # 📌 CLASSIFICAÇÃO
-    # =========================
-    if "classificacao" in df.columns:
-        df["Classificação"] = df["classificacao"].fillna("Despesa")
-    else:
-        df["Classificação"] = "Despesa"
-
-
-    # =========================
-    # 🏦 CONTA
-    # =========================
-    if "conta" in df.columns:
-        df["Conta"] = df["conta"].fillna("ESPÉCIE")
-    else:
-        df["Conta"] = "ESPÉCIE"
-
-
-    # =========================
-    # 📅 DATAS
-    # =========================
-    if "data" in df.columns:
-        df["Data"] = pd.to_datetime(df["data"], errors="coerce")
-    else:
-        df["Data"] = pd.NaT
-
-
-    if "data_vencimento" in df.columns:
-        df["Data Vencimento"] = pd.to_datetime(df["data_vencimento"], errors="coerce")
-    else:
-        df["Data Vencimento"] = pd.NaT
-
-
-    # =========================
-    # 📌 STATUS
-    # =========================
-    if "status" in df.columns:
-        df["Status"] = df["status"].fillna("Pendente")
-    else:
-        df["Status"] = "Pendente"
-
-
-    # =========================
-    # 🧠 OUTROS CAMPOS
-    # =========================
-    mapa = {
-        "titular": "Titular",
-        "mes": "Mês",
-        "descricao": "Descrição",
-        "categoria": "Categoria",
-        "subcategoria": "Subcategoria",
-        "tipo_despesa": "Tipo de despesa"
-    }
-
-    for col_banco, col_app in mapa.items():
-        if col_banco in df.columns:
-            df[col_app] = df[col_banco]
-
-
-    # =========================
-    # 🔑 ID (EDITAR FUNCIONAR)
-    # =========================
-    if "id" not in df.columns:
-        df["id"] = df.index
-
-    return df
-# -------------------------
-# 💾 SALVAR DADOS
-# -------------------------
-def salvar_dados(linha):
-    from database import inserir_transacao
-
-    try:
-        inserir_transacao(linha)
-    except Exception as e:
-        import streamlit as st
-        st.error(f"Erro ao salvar no banco: {e}")
+from database import (
+    inserir_transacao,
+    atualizar_transacao,
+    buscar_transacoes,
+    buscar_metas
+)
 
 # =========================
 # 🚀 FUNÇÃO PRINCIPAL
@@ -129,17 +35,15 @@ def sistema_financeiro():
 
         for _, row in df.iterrows():
 
-            # Só despesas
-            if row.get("Classificação") != "Despesa":
+            # ✔ usa coluna padronizada
+            if str(row.get("classificacao", "")).upper() != "DESPESA":
                 continue
 
-            # Ignora pagos
-            if row.get("Status") == "Pago":
+            if str(row.get("status", "")).upper() == "PAGO":
                 continue
 
-            vencimento = row.get("Data Vencimento")
+            vencimento = row.get("data_vencimento")
 
-            # 🔥 TRAVA DE SEGURANÇA (ESSENCIAL)
             if pd.isna(vencimento):
                 continue
 
@@ -150,31 +54,18 @@ def sistema_financeiro():
 
             dias = (vencimento - hoje).days
 
+            descricao = row.get("descricao", "Sem descrição")
+
             if dias < 0:
-                avisos.append(f"❌ {row['Descrição']} está vencido há {abs(dias)} dia(s)")
+                avisos.append(f"❌ {descricao} está vencido há {abs(dias)} dia(s)")
             elif dias <= 3:
-                avisos.append(f"⚠️ {row['Descrição']} vence em {dias} dia(s)")
+                avisos.append(f"⚠️ {descricao} vence em {dias} dia(s)")
 
         return avisos
 
 
-    avisos = verificar_alertas(df_topo)
-
-    # 🔥 CAIXA DE ALERTA BONITA
-    if avisos:
-        st.markdown("### 🚨 Contas para atenção")
-
-        for aviso in avisos:
-            if "❌" in aviso:
-                st.error(aviso)
-            else:
-                st.warning(aviso)
-    else:
-        st.success("✅ Nenhuma conta pendente ou próxima do vencimento")
-
-
     # =========================
-    # 💰 SALDOS NO TOPO (CORRIGIDO)
+    # 💰 SALDOS NO TOPO (ROBUSTO)
     # =========================
 
     df_topo = carregar_dados()
@@ -184,23 +75,31 @@ def sistema_financeiro():
 
     if df_topo.empty:
         st.info("Sem dados ainda")
+
     else:
-        
-        # 🔥 padroniza colunas
+
+        # 🔥 padronização segura
         df_topo.columns = [str(c).strip().lower() for c in df_topo.columns]
 
-        # 🔥 garante colunas obrigatórias
+        # 🔥 garante colunas
         if "valor" not in df_topo.columns:
-            st.error("Coluna 'valor' não encontrada no banco")
+            st.error("Coluna 'valor' não encontrada")
             st.stop()
-            
+
         if "classificacao" not in df_topo.columns:
-            df_topo["classificacao"] = "despesa"
+            df_topo["classificacao"] = "DESPESA"
 
         if "conta" not in df_topo.columns:
-            df_topo["conta"] = "espécie"
+            df_topo["conta"] = "ESPÉCIE"
 
-        # 🔥 converte valor com segurança
+        # 🔥 CONVERSÃO FORTE (ESSENCIAL)
+        df_topo["valor"] = (
+            df_topo["valor"]
+            .astype(str)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False)
+        )
+
         df_topo["valor"] = pd.to_numeric(df_topo["valor"], errors="coerce").fillna(0)
 
         bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
@@ -210,18 +109,24 @@ def sistema_financeiro():
 
         for _, row in df_topo.iterrows():
 
-            valor = row["valor"]
-            tipo = str(row["classificacao"]).upper()
-            conta = str(row["conta"])
+            valor = float(row["valor"])
+
+            tipo = str(row["classificacao"]).strip().upper()
+            conta = str(row["conta"] or "")
 
             if tipo == "DESPESA":
-               valor = -valor
+                valor = -abs(valor)
 
             if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
-                banco = conta.split("(")[1].replace(")", "").strip()
-                if banco in bancos:
-                    saldos[banco] += valor
-                else:
+                try:
+                    banco = conta.split("(")[1].replace(")", "").strip()
+
+                    if banco in saldos:
+                        saldos[banco] += valor
+                    else:
+                        saldos["Dinheiro (Caixa físico)"] += valor
+
+                except:
                     saldos["Dinheiro (Caixa físico)"] += valor
             else:
                 saldos["Dinheiro (Caixa físico)"] += valor
@@ -230,13 +135,14 @@ def sistema_financeiro():
         colunas = st.columns(len(saldos))
 
         for i, (nome, saldo) in enumerate(saldos.items()):
-            icone = "💵" if "Dinheiro" in nome else "🏦"
 
+            icone = "💵" if "Dinheiro" in nome else "🏦"
             cor = "🔴" if saldo < 0 else "🟢"
 
             colunas[i].markdown(
                 f"### {icone} {nome}\n{cor} R$ {saldo:,.2f}"
             )
+            
     # -------------------------
     # 📌 CATEGORIAS
     # -------------------------
@@ -344,9 +250,8 @@ def sistema_financeiro():
                     status                 # NOVO 
                 ]
 
-                salvar_dados(linha)
-                st.success("Salvo no Google Sheets!")
-
+                inserir_transacao(linha)
+                st.success("Salvo no banco de dados!")
                 st.rerun()
 
     # -------------------------

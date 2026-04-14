@@ -3,6 +3,22 @@ from supabase_client import conectar_supabase
 
 
 # =========================
+# 🔧 LIMPAR VALOR BR → FLOAT
+# =========================
+def limpar_valor(valor):
+    try:
+        return float(
+            str(valor)
+            .replace("R$", "")
+            .replace(".", "")
+            .replace(",", ".")
+            .strip()
+        )
+    except:
+        return 0.0
+
+
+# =========================
 # 📥 TRANSAÇÕES
 # =========================
 def buscar_transacoes():
@@ -31,7 +47,7 @@ def inserir_transacao(linha):
         "mes": linha[2],
         "descricao": linha[3],
         "conta": linha[4],
-        "valor": float(linha[5]) if linha[5] not in [None, ""] else 0,
+        "valor": limpar_valor(linha[5]),
         "categoria": linha[6],
         "subcategoria": linha[7],
         "tipo_despesa": linha[8],
@@ -58,7 +74,7 @@ def atualizar_transacao(id_linha, novos_dados):
         "mes": novos_dados[2],
         "descricao": novos_dados[3],
         "conta": novos_dados[4],
-        "valor": float(novos_dados[5]) if novos_dados[5] not in [None, ""] else 0,
+        "valor": limpar_valor(novos_dados[5]),
         "categoria": novos_dados[6],
         "subcategoria": novos_dados[7],
         "tipo_despesa": novos_dados[8],
@@ -87,9 +103,7 @@ def deletar_transacao(id_linha):
 # =========================
 def buscar_metas():
     supabase = conectar_supabase()
-
     response = supabase.table("metas").select("*").execute()
-
     return pd.DataFrame(response.data or [])
 
 
@@ -101,7 +115,7 @@ def inserir_meta(categoria, valor, mes, ano):
 
     dados = {
         "categoria": categoria,
-        "valor": float(valor) if valor not in [None, ""] else 0,
+        "valor": limpar_valor(valor),
         "mes": mes,
         "ano": ano
     }
