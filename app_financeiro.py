@@ -181,7 +181,7 @@ def sistema_financeiro():
     saldos = {banco: 0 for banco in bancos}
     saldos["Dinheiro (Caixa físico)"] = 0
 
-    df_topo.columns = df_topo.columns.str.strip()
+    df_topo.columns = df_topo.columns.map(str).str.strip()
 
     # 🔥 GARANTIR TIPOS CORRETOS
     df_topo["Valor"] = pd.to_numeric(df_topo["Valor"], errors="coerce").fillna(0)
@@ -466,7 +466,7 @@ def sistema_financeiro():
             st.info("Sem dados ainda")
         else:
 
-            df_topo.columns = df_topo.columns.str.strip()
+            df_topo.columns = df_topo.columns.map(str).str.strip()
 
             # 🔥 GARANTIR TIPOS CERTOS
             df_topo["Valor"] = pd.to_numeric(df_topo["Valor"], errors="coerce").fillna(0)
