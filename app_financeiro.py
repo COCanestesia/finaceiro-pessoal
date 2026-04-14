@@ -210,10 +210,9 @@ def sistema_financeiro():
     # -------------------------
     # 📑 ABAS
     # -------------------------
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3 = st.tabs([
         "💾 Lançamentos",
         "📋 Consulta",
-        "✏️ Editar",
         "💰 RESUMO DE SALDOS"
     ])
 
@@ -438,126 +437,11 @@ def sistema_financeiro():
                         st.metric("Diferença", format_real(diferenca))
 
                     st.markdown("---")
-            
-    # ----------------------
-    # ✏️ ABA 3 EDITAR
-    # ----------------------            
+
+    # -------------------------
+    # 💰 ABA 3 - RESUMO DE SALDOS
+    # -------------------------
     with tab3:
-        st.subheader("✏️ Editar lançamento")
-
-        df = carregar_dados()
-
-        if df.empty:
-            st.info("Sem dados ainda")
-        else:
-            # 🔥 garantir coluna limpa
-            df.columns = df.columns.str.strip()
-            
-        # 🔥 criar índice da linha no Sheets
-        df["linha_sheet"] = df.index + 2
-
-        # Seleção do registro
-        linha_sel = st.selectbox(
-            "Selecione o lançamento",
-            df.index,
-            format_func=lambda x: f"{df.loc[x, 'Titular']} | {df.loc[x, 'Descrição']} | R$ {df.loc[x, 'Valor']}"
-        )
-        df.columns = df.columns.str.strip()
-        if "Subdescrição" not in df.columns:
-            df["Subdescrição"] = ""  # cria a coluna vazia se não existir
-
-        linha = df.iloc[linha_sel]
-
-        # 🔥 TRATAR VALORES (evita erro com NaN)
-        titular_val = linha.get("Titular", "")
-        data_val = pd.to_datetime(linha.get("Data"), errors="coerce")
-        mes_val = linha.get("Mês", "")
-        descricao_val = linha.get("Descrição", "")
-        conta_val = linha.get("Conta", "ESPÉCIE")
-        valor_val = float(linha.get("Valor", 0))
-        categoria_val = linha.get("Categoria", "")
-        subcategoria_val = linha.get("Subcategoria", "")
-        tipo_val = linha.get("Tipo de despesa", "")
-        classificacao_val = linha.get("Classificação", "Despesa")
-        status_val = linha.get("Status", "Pendente")
-        data_venc_val = pd.to_datetime(linha.get("Data Vencimento"), errors="coerce")
-
-        # -------------------------
-        # CAMPOS EDITÁVEIS
-        # -------------------------
-        titular = st.text_input("Titular", titular_val)
-
-        data = st.date_input(
-            "Data",
-            data_val if pd.notnull(data_val) else pd.Timestamp.today()
-        )
-
-        mes = st.text_input("Mês", mes_val)
-
-        descricao = st.text_input("Descrição", descricao_val)
-
-        conta = st.selectbox(
-            "Conta",
-            ["ESPÉCIE", "TRANSFERÊNCIA BANCÁRIA (Itaú)", "TRANSFERÊNCIA BANCÁRIA (Nubank)"],
-            index=0 if conta_val not in ["ESPÉCIE", "TRANSFERÊNCIA BANCÁRIA (Itaú)", "TRANSFERÊNCIA BANCÁRIA (Nubank)"] 
-            else ["ESPÉCIE", "TRANSFERÊNCIA BANCÁRIA (Itaú)", "TRANSFERÊNCIA BANCÁRIA (Nubank)"].index(conta_val)
-        )
-
-        valor = st.number_input("Valor", value=valor_val)
-
-        categoria = st.text_input("Categoria", categoria_val)
-
-        subcategoria = st.text_input("Subcategoria", subcategoria_val)
-
-        tipo = st.text_input("Tipo de despesa", tipo_val)
-
-        classificacao = st.selectbox(
-            "Classificação",
-            ["Receita", "Despesa"],
-            index=0 if classificacao_val == "Receita" else 1
-        )
-
-        # 🔥 CAMPOS NOVOS (IMPORTANTES)
-        data_vencimento = st.date_input(
-            "Data de vencimento",
-            data_venc_val if pd.notnull(data_venc_val) else pd.Timestamp.today()
-        )
-
-        status = st.selectbox(
-            "Status",
-            ["Pendente", "Pago"],
-            index=0 if status_val == "Pendente" else 1
-        )
-
-
-        if st.button("💾 Salvar alteração"):
-
-            id_linha = int(linha["id"])
-
-            novos_dados = [
-                titular,
-                str(data),
-                mes,
-                descricao,
-                conta,
-                valor,
-                categoria,
-                subcategoria,
-                tipo,
-                classificacao,
-                str(data_vencimento),
-                status
-            ]
-
-            atualizar_transacao(id_linha, novos_dados)
-
-            st.success("Alteração salva no banco!")
-            st.rerun()
-
-    # -------------------------
-    # 💰 ABA 4 - RESUMO DE SALDOS
-    # -------------------------
-    with tab4:
         st.subheader("💰 Saldos por Conta/Banco")
 
         df_topo = carregar_dados()
