@@ -174,45 +174,43 @@ def sistema_financeiro():
 
 
     # =========================
-    # 💰 SALDOS NO TOPO
+    # 💰 SALDOS NO TOPO (CORRIGIDO)
     # =========================
+
     bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
     saldos = {banco: 0 for banco in bancos}
     saldos["Dinheiro (Caixa físico)"] = 0
 
-    if not df_topo.empty:
-        df_topo.columns = df_topo.columns.str.strip()
-        df_topo["Data"] = pd.to_datetime(df_topo["Data"], errors="coerce")
-        df_topo = df_topo.sort_values("Data")
+    df_topo.columns = df_topo.columns.str.strip()
 
-        for _, row in df_topo.iterrows():
-            valor = row["Valor"]
-            tipo = row["Classificação"]
-            conta = row["Conta"]
+    # 🔥 GARANTIR TIPOS CORRETOS
+    df_topo["Valor"] = pd.to_numeric(df_topo["Valor"], errors="coerce").fillna(0)
+    df_topo["Classificação"] = df_topo["Classificação"].astype(str).str.upper().str.strip()
+    df_topo["Conta"] = df_topo["Conta"].fillna("ESPÉCIE")
+    
+    df_topo["Data"] = pd.to_datetime(df_topo["Data"], errors="coerce")
+    df_topo = df_topo.sort_values("Data")
+    
+    for _, row in df_topo.iterrows():
+        
+        valor = float(row["Valor"])
+        tipo = str(row["Classificação"])
+        conta = str(row["Conta"])
+        
+        # despesa vira negativo
+        if tipo == "DESPESA":
+            valor = -valor
 
-            if tipo == "Despesa":
-                valor = -valor
+        # banco
+        if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
+            banco = conta.split("(")[1].replace(")", "").strip()
 
-            if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
-                banco = conta.split("(")[1].replace(")", "")
-                if banco in bancos:
-                    saldos[banco] += valor
-                else:
-                    saldos["Dinheiro (Caixa físico)"] += valor
+            if banco in saldos:
+                saldos[banco] += valor
             else:
                 saldos["Dinheiro (Caixa físico)"] += valor
-
-    # 🔥 EXIBIR SALDOS
-    colunas = st.columns(len(saldos))
-
-    for i, (nome, saldo) in enumerate(saldos.items()):
-        icone = "💵" if nome == "Dinheiro (Caixa físico)" else "🏦"
-
-        # Cor dinâmica (verde positivo / vermelho negativo)
-        if saldo < 0:
-            colunas[i].markdown(f"### {icone} {nome}\n🔴 R$ {saldo:,.2f}")
         else:
-            colunas[i].markdown(f"### {icone} {nome}\n🟢 R$ {saldo:,.2f}")
+            saldos["Dinheiro (Caixa físico)"] += valor
     # -------------------------
     # 📌 CATEGORIAS
     # -------------------------
