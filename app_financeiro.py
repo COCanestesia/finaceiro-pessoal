@@ -68,6 +68,10 @@ def sistema_financeiro():
     # =========================
     saldos = calcular_saldos(df_topo)
 
+    if not saldos:
+        st.warning("Sem saldos para exibir")
+        return
+
     colunas = st.columns(len(saldos))
 
     for i, (nome, saldo) in enumerate(saldos.items()):
