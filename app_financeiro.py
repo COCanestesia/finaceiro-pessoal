@@ -181,27 +181,25 @@ def sistema_financeiro():
     saldos = {banco: 0 for banco in bancos}
     saldos["Dinheiro (Caixa físico)"] = 0
 
-    df_topo.columns = [str(x).strip() for x in df_topo.columns]
+    df_topo.columns = df_topo.columns.str.strip().str.lower()
 
-    # 🔥 GARANTIR TIPOS CORRETOS
-    df_topo["Valor"] = pd.to_numeric(df_topo["Valor"], errors="coerce").fillna(0)
-    df_topo["Classificação"] = df_topo["Classificação"].astype(str).str.upper().str.strip()
-    df_topo["Conta"] = df_topo["Conta"].fillna("ESPÉCIE")
-    
-    df_topo["Data"] = pd.to_datetime(df_topo["Data"], errors="coerce")
-    df_topo = df_topo.sort_values("Data")
-    
+    df_topo["valor"] = pd.to_numeric(df_topo["valor"], errors="coerce").fillna(0)
+    df_topo["classificacao"] = df_topo["classificacao"].astype(str).str.upper().str.strip()
+    df_topo["conta"] = df_topo["conta"].astype(str)
+
+    bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
+    saldos = {banco: 0 for banco in bancos}
+    saldos["Dinheiro (Caixa físico)"] = 0
+
     for _, row in df_topo.iterrows():
-        
-        valor = float(row["Valor"])
-        tipo = str(row["Classificação"])
-        conta = str(row["Conta"])
-        
-        # despesa vira negativo
+
+        valor = float(row["valor"])
+        tipo = row["classificacao"]
+        conta = row["conta"]
+
         if tipo == "DESPESA":
             valor = -valor
 
-        # banco
         if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
             banco = conta.split("(")[1].replace(")", "").strip()
 
@@ -244,15 +242,15 @@ def sistema_financeiro():
 
         with st.form("form_dados", clear_on_submit=True):
 
-            titular = st.text_input("Titular")
-            data = st.date_input("Data")
+            titular = st.text_input("titular")
+            data = st.date_input("data")
 
-            mes = st.selectbox("Mês", [
+            mes = st.selectbox("mês", [
                 "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
                 "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
             ])
 
-            descricao = st.text_input("Descrição")
+            descricao = st.text_input("descrição")
     
             # Lista de bancos
             bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
@@ -261,28 +259,28 @@ def sistema_financeiro():
             contas = ["ESPÉCIE"] + [f"TRANSFERÊNCIA BANCÁRIA ({banco})" for banco in bancos]
 
             conta = st.selectbox("Conta", contas)
-            valor = st.number_input("Valor", min_value=0.0)
+            valor = st.number_input("valor", min_value=0.0)
             # NOVOS CAMPOS
-            data_vencimento = st.date_input("Data de vencimento", value=datetime.today().date())
+            data_vencimento = st.date_input("data de vencimento", value=datetime.today().date())
 
-            status = st.selectbox("Status", ["Pendente", "Pago"])
+            status = st.selectbox("status", ["Pendente", "Pago"])
 
             # -----------------------
             # ✅ CATEGORIA DINÂMICA (DENTRO DO SELECT)
             # -----------------------
-            opcoes = st.session_state.categorias + ["➕ Nova categoria"]
+            opcoes = st.session_state.categorias + ["➕ nova categoria"]
 
             categoria = st.selectbox("Categoria", opcoes)
 
             # Campo só aparece se escolher nova categoria
             nova_categoria = None
-            if categoria == "➕ Nova categoria":
+            if categoria == "➕ nova categoria":
                 nova_categoria = st.text_input("Digite a nova categoria")
 
-            subcategoria = st.text_input("Subcategoria")
-            tipo_despesa = st.text_input("Tipo de despesa")
+            subcategoria = st.text_input("subcategoria")
+            tipo_despesa = st.text_input("tipo de despesa")
 
-            classificacao = st.selectbox("Classificação", ["Receita", "Despesa"])
+            classificacao = st.selectbox("classificação", ["Receita", "Despesa"])
 
             submit = st.form_submit_button("Salvar")
 
@@ -292,7 +290,7 @@ def sistema_financeiro():
             if submit:
 
                 # 🔥 Trata nova categoria
-                if categoria == "➕ Nova categoria":
+                if categoria == "➕ nova categoria":
                     if nova_categoria:
                         if nova_categoria not in st.session_state.categorias:
                             st.session_state.categorias.append(nova_categoria)
@@ -466,12 +464,11 @@ def sistema_financeiro():
             st.info("Sem dados ainda")
         else:
 
-            df_topo.columns = [str(x).strip() for x in df_topo.columns]
+            df_topo.columns = df_topo.columns.str.strip().str.lower()
 
-            # 🔥 GARANTIR TIPOS CERTOS
-            df_topo["Valor"] = pd.to_numeric(df_topo["Valor"], errors="coerce").fillna(0)
-            df_topo["Classificação"] = df_topo["Classificação"].fillna("Despesa")
-            df_topo["Conta"] = df_topo["Conta"].fillna("ESPÉCIE")
+            df_topo["valor"] = pd.to_numeric(df_topo["valor"], errors="coerce").fillna(0)
+            df_topo["classificacao"] = df_topo["classificacao"].astype(str).str.upper().str.strip()
+            df_topo["conta"] = df_topo["conta"].astype(str)
 
             bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
             saldos = {banco: 0 for banco in bancos}
@@ -479,15 +476,13 @@ def sistema_financeiro():
 
             for _, row in df_topo.iterrows():
 
-                valor = float(row["Valor"])
-                tipo = str(row["Classificação"])
-                conta = str(row["Conta"])
+                valor = float(row["valor"])
+                tipo = row["classificacao"]
+                conta = row["conta"]
 
-                # 🔥 despesa vira negativo
-                if tipo == "Despesa":
+                if tipo == "DESPESA":
                     valor = -valor
 
-                # 🔥 banco
                 if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
                     banco = conta.split("(")[1].replace(")", "").strip()
 
