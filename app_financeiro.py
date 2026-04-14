@@ -17,7 +17,9 @@ def sistema_financeiro():
 
     st.title("💰 Sistema Financeiro")
 
-    df_topo = carregar_dados()
+    df_topo, _ = carregar_dados()
+
+    saldos = calcular_saldos(df_topo)
 
 
     # =========================
@@ -64,7 +66,7 @@ def sistema_financeiro():
     # =========================
     # 💰 SALDO (TEMPO REAL)
     # =========================
-    saldos = calcular_saldos(df)
+    saldos = calcular_saldos(df_topo)
 
     colunas = st.columns(len(saldos))
 
@@ -93,10 +95,9 @@ def sistema_financeiro():
     # -------------------------
     # 📑 ABAS
     # -------------------------
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2 = st.tabs([
         "💾 Lançamentos",
         "📋 Consulta",
-        "💰 RESUMO DE SALDOS"
     ])
 
     # -------------------------
@@ -319,57 +320,3 @@ def sistema_financeiro():
                         st.metric("Diferença", format_real(diferenca))
 
                     st.markdown("---")
-
-    # -------------------------
-    # 💰 ABA 3 - RESUMO DE SALDOS
-    # -------------------------
-    with tab3:
-        st.subheader("💰 Saldos por Conta/Banco")
-
-        df_topo = carregar_dados()
-
-        if df_topo.empty:
-            st.info("Sem dados ainda")
-        else:
-
-            df_topo.columns = [str(c).strip().lower() for c in df_topo.columns]
-
-            df_topo["valor"] = pd.to_numeric(df_topo["valor"], errors="coerce").fillna(0)
-            df_topo["classificacao"] = df_topo["classificacao"].astype(str).str.upper().str.strip()
-            df_topo["conta"] = df_topo["conta"].astype(str)
-
-            bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
-            saldos = {banco: 0 for banco in bancos}
-            saldos["Dinheiro (Caixa físico)"] = 0
-
-            for _, row in df_topo.iterrows():
-
-                valor = float(row["valor"])
-                tipo = row["classificacao"]
-                conta = row["conta"]
-
-                if tipo == "DESPESA":
-                    valor = -valor
-
-                if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
-                    banco = conta.split("(")[1].replace(")", "").strip()
-
-                    if banco in saldos:
-                        saldos[banco] += valor
-                    else:
-                        saldos["Dinheiro (Caixa físico)"] += valor
-                else:
-                    saldos["Dinheiro (Caixa físico)"] += valor
-
-        # 🔥 EXIBIR
-        colunas = st.columns(len(saldos))
-
-        for i, (nome, saldo) in enumerate(saldos.items()):
-            icone = "💵" if nome == "Dinheiro (Caixa físico)" else "🏦"
-
-            if saldo < 0:
-                colunas[i].metric(f"{icone} {nome}", f"🔴 R$ {saldo:,.2f}")
-            else:
-                colunas[i].metric(f"{icone} {nome}", f"🟢 R$ {saldo:,.2f}")
-
-        st.metric("💼 Total Geral", f"R$ {sum(saldos.values()):,.2f}")

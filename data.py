@@ -1,6 +1,7 @@
 import pandas as pd
 from database import buscar_transacoes, buscar_metas
 
+
 # =========================
 # 🧠 CÉREBRO DO SISTEMA
 # =========================
@@ -20,26 +21,36 @@ def carregar_dados():
     df.columns = [str(c).strip().lower() for c in df.columns]
 
     # =========================
-    # 💰 VALOR
+    # 💰 VALOR (ROBUSTO)
     # =========================
+    df["valor"] = df.get("valor", 0)
+
     df["valor"] = (
-        df.get("valor", 0)
+        df["valor"]
         .astype(str)
         .str.replace(".", "", regex=False)
         .str.replace(",", ".", regex=False)
     )
+
     df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
 
     # =========================
     # 📌 CLASSIFICAÇÃO
     # =========================
     df["classificacao"] = df.get("classificacao", "DESPESA")
-    df["classificacao"] = df["classificacao"].fillna("DESPESA").astype(str).str.upper()
+    df["classificacao"] = (
+        df["classificacao"]
+        .fillna("DESPESA")
+        .astype(str)
+        .str.upper()
+        .str.strip()
+    )
 
     # =========================
     # 🏦 CONTA
     # =========================
-    df["conta"] = df.get("conta", "ESPÉCIE").fillna("ESPÉCIE").astype(str)
+    df["conta"] = df.get("conta", "ESPÉCIE")
+    df["conta"] = df["conta"].fillna("ESPÉCIE").astype(str)
 
     # =========================
     # 📅 DATAS
@@ -58,6 +69,18 @@ def calcular_saldos(df):
     if df is None or df.empty:
         return {}
 
+    # garante segurança total
+    df = df.copy()
+
+    if "valor" not in df.columns:
+        df["valor"] = 0
+
+    if "classificacao" not in df.columns:
+        df["classificacao"] = "DESPESA"
+
+    if "conta" not in df.columns:
+        df["conta"] = "ESPÉCIE"
+
     bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
 
     saldos = {b: 0 for b in bancos}
@@ -65,9 +88,9 @@ def calcular_saldos(df):
 
     for _, row in df.iterrows():
 
-        valor = row["valor"]
+        valor = float(row["valor"])
 
-        if row["classificacao"] == "DESPESA":
+        if str(row["classificacao"]).upper() == "DESPESA":
             valor = -abs(valor)
 
         conta = str(row["conta"])
