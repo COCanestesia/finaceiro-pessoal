@@ -177,38 +177,66 @@ def sistema_financeiro():
     # 💰 SALDOS NO TOPO (CORRIGIDO)
     # =========================
 
-    bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
-    saldos = {banco: 0 for banco in bancos}
-    saldos["Dinheiro (Caixa físico)"] = 0
+    df_topo = carregar_dados()
 
-    df_topo.columns = [str(c).strip().lower() for c in df_topo.columns]
+    if isinstance(df_topo, tuple):
+        df_topo = df_topo[0]
 
-    df_topo["valor"] = pd.to_numeric(df_topo["valor"], errors="coerce").fillna(0)
-    df_topo["classificacao"] = df_topo["classificacao"].astype(str).str.upper().str.strip()
-    df_topo["conta"] = df_topo["conta"].astype(str)
+    if df_topo.empty:
+        st.info("Sem dados ainda")
+    else:
+        
+        # 🔥 padroniza colunas
+        df_topo.columns = [str(c).strip().lower() for c in df_topo.columns]
 
-    bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
-    saldos = {banco: 0 for banco in bancos}
-    saldos["Dinheiro (Caixa físico)"] = 0
+        # 🔥 garante colunas obrigatórias
+        if "valor" not in df_topo.columns:
+            st.error("Coluna 'valor' não encontrada no banco")
+            st.stop()
+            
+        if "classificacao" not in df_topo.columns:
+            df_topo["classificacao"] = "despesa"
 
-    for _, row in df_topo.iterrows():
+        if "conta" not in df_topo.columns:
+            df_topo["conta"] = "espécie"
 
-        valor = float(row["valor"])
-        tipo = row["classificacao"]
-        conta = row["conta"]
+        # 🔥 converte valor com segurança
+        df_topo["valor"] = pd.to_numeric(df_topo["valor"], errors="coerce").fillna(0)
 
-        if tipo == "DESPESA":
-            valor = -valor
+        bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
 
-        if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
-            banco = conta.split("(")[1].replace(")", "").strip()
+        saldos = {b: 0 for b in bancos}
+        saldos["Dinheiro (Caixa físico)"] = 0
 
-            if banco in saldos:
-                saldos[banco] += valor
+        for _, row in df_topo.iterrows():
+
+            valor = row["valor"]
+            tipo = str(row["classificacao"]).upper()
+            conta = str(row["conta"])
+
+            if tipo == "DESPESA":
+               valor = -valor
+
+            if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
+                banco = conta.split("(")[1].replace(")", "").strip()
+                if banco in bancos:
+                    saldos[banco] += valor
+                else:
+                    saldos["Dinheiro (Caixa físico)"] += valor
             else:
                 saldos["Dinheiro (Caixa físico)"] += valor
-        else:
-            saldos["Dinheiro (Caixa físico)"] += valor
+
+        # 🔥 EXIBIÇÃO
+        colunas = st.columns(len(saldos))
+
+        for i, (nome, saldo) in enumerate(saldos.items()):
+            icone = "💵" if "Dinheiro" in nome else "🏦"
+
+            cor = "🔴" if saldo < 0 else "🟢"
+
+            colunas[i].markdown(
+                f"### {icone} {nome}\n{cor} R$ {saldo:,.2f}"
+            )
     # -------------------------
     # 📌 CATEGORIAS
     # -------------------------
