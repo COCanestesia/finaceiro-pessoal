@@ -2,10 +2,14 @@ import psycopg2
 import pandas as pd
 import streamlit as st
 
-# 🔌 CONEXÃO
+
 def conectar_banco():
     return psycopg2.connect(
-        st.secrets["DATABASE_URL"],
+        host=st.secrets["DB_HOST"],
+        database=st.secrets["DB_NAME"],
+        user=st.secrets["DB_USER"],
+        password=st.secrets["DB_PASS"],
+        port="5432",
         sslmode="require"
     )
 
