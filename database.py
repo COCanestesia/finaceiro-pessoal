@@ -1,8 +1,9 @@
 import pandas as pd
 from supabase_client import conectar_supabase
 
+
 # =========================
-# 📥 BUSCAR TRANSAÇÕES
+# 📥 TRANSAÇÕES
 # =========================
 def buscar_transacoes():
     supabase = conectar_supabase()
@@ -19,23 +20,23 @@ def buscar_transacoes():
 
 
 # =========================
-# 💾 INSERIR TRANSAÇÃO
+# 💾 INSERIR
 # =========================
 def inserir_transacao(linha):
     supabase = conectar_supabase()
 
     dados = {
         "titular": linha[0],
-        "data": str(linha[1]) if linha[1] else None,
+        "data": linha[1],
         "mes": linha[2],
         "descricao": linha[3],
         "conta": linha[4],
-        "valor": float(linha[5]) if linha[5] else 0,
+        "valor": float(linha[5]) if linha[5] not in [None, ""] else 0,
         "categoria": linha[6],
         "subcategoria": linha[7],
         "tipo_despesa": linha[8],
         "classificacao": linha[9],
-        "data_vencimento": str(linha[10]) if linha[10] else None,
+        "data_vencimento": linha[10],
         "status": linha[11]
     }
 
@@ -43,7 +44,7 @@ def inserir_transacao(linha):
 
 
 # =========================
-# ✏️ ATUALIZAR TRANSAÇÃO
+# ✏️ ATUALIZAR
 # =========================
 def atualizar_transacao(id_linha, novos_dados):
     supabase = conectar_supabase()
@@ -53,16 +54,16 @@ def atualizar_transacao(id_linha, novos_dados):
 
     dados = {
         "titular": novos_dados[0],
-        "data": str(novos_dados[1]) if novos_dados[1] else None,
+        "data": novos_dados[1],
         "mes": novos_dados[2],
         "descricao": novos_dados[3],
         "conta": novos_dados[4],
-        "valor": float(novos_dados[5]) if novos_dados[5] else 0,
+        "valor": float(novos_dados[5]) if novos_dados[5] not in [None, ""] else 0,
         "categoria": novos_dados[6],
         "subcategoria": novos_dados[7],
         "tipo_despesa": novos_dados[8],
         "classificacao": novos_dados[9],
-        "data_vencimento": str(novos_dados[10]) if novos_dados[10] else None,
+        "data_vencimento": novos_dados[10],
         "status": novos_dados[11]
     }
 
@@ -70,7 +71,7 @@ def atualizar_transacao(id_linha, novos_dados):
 
 
 # =========================
-# ❌ DELETAR TRANSAÇÃO
+# ❌ DELETAR
 # =========================
 def deletar_transacao(id_linha):
     supabase = conectar_supabase()
@@ -82,7 +83,7 @@ def deletar_transacao(id_linha):
 
 
 # =========================
-# 📊 BUSCAR METAS
+# 📊 METAS
 # =========================
 def buscar_metas():
     supabase = conectar_supabase()
@@ -100,7 +101,7 @@ def inserir_meta(categoria, valor, mes, ano):
 
     dados = {
         "categoria": categoria,
-        "valor": float(valor) if valor else 0,
+        "valor": float(valor) if valor not in [None, ""] else 0,
         "mes": mes,
         "ano": ano
     }

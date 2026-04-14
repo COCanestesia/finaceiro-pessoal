@@ -14,88 +14,70 @@ def carregar_dados():
         return df_dados, df_meta
 
     # =========================
-    # 🧹 LIMPEZA
+    # 🧹 PADRONIZAÇÃO FORTE
     # =========================
-    df_dados.columns = df_dados.columns.str.strip()
+    df_dados.columns = [
+        str(c).strip().lower()
+        for c in df_dados.columns
+    ]
 
     # =========================
-    # 🔥 PADRONIZAÇÃO PRINCIPAL
+    # 🔥 VALOR
     # =========================
-
-    # ID
-    if "id" in df_dados.columns:
-        df_dados["id"] = df_dados["id"]
-
-    # DATA
-    if "data" in df_dados.columns:
-        df_dados["Data"] = pd.to_datetime(df_dados["data"], errors="coerce")
-
-    # VALOR
     if "valor" in df_dados.columns:
-        df_dados["Valor"] = pd.to_numeric(df_dados["valor"], errors="coerce").fillna(0)
-    else:
-        df_dados["Valor"] = 0
+        df_dados["valor"] = pd.to_numeric(df_dados["valor"], errors="coerce").fillna(0)
 
-    # CLASSIFICAÇÃO
+    # =========================
+    # 🔥 CLASSIFICAÇÃO
+    # =========================
     if "classificacao" in df_dados.columns:
-        df_dados["Classificação"] = df_dados["classificacao"].fillna("Despesa")
+        df_dados["classificacao"] = df_dados["classificacao"].astype(str).str.upper().str.strip()
     else:
-        df_dados["Classificação"] = "Despesa"
+        df_dados["classificacao"] = "DESPESA"
 
-    # CONTA
+    # =========================
+    # 🔥 CONTA
+    # =========================
     if "conta" in df_dados.columns:
-        df_dados["Conta"] = df_dados["conta"].fillna("ESPÉCIE")
-    else:
-        df_dados["Conta"] = "ESPÉCIE"
+        df_dados["conta"] = df_dados["conta"].astype(str).fillna("ESPÉCIE")
 
-    # CATEGORIA
-    if "categoria" in df_dados.columns:
-        df_dados["Categoria"] = df_dados["categoria"]
+    # =========================
+    # 🔥 DATA
+    # =========================
+    if "data" in df_dados.columns:
+        df_dados["data"] = pd.to_datetime(df_dados["data"], errors="coerce")
 
-    # SUBCATEGORIA
-    if "subcategoria" in df_dados.columns:
-        df_dados["Subcategoria"] = df_dados["subcategoria"]
-
-    # TIPO DESPESA
-    if "tipo_despesa" in df_dados.columns:
-        df_dados["Tipo de despesa"] = df_dados["tipo_despesa"]
-
-    # DATA VENCIMENTO
+    # =========================
+    # 🔥 DATA VENCIMENTO
+    # =========================
     if "data_vencimento" in df_dados.columns:
-        df_dados["Data Vencimento"] = pd.to_datetime(df_dados["data_vencimento"], errors="coerce")
-    else:
-        df_dados["Data Vencimento"] = pd.NaT
-
-    # STATUS
-    if "status" in df_dados.columns:
-        df_dados["Status"] = df_dados["status"].fillna("Pendente")
-    else:
-        df_dados["Status"] = "Pendente"
+        df_dados["data_vencimento"] = pd.to_datetime(df_dados["data_vencimento"], errors="coerce")
 
     # =========================
-    # 🔑 ID PARA EDIÇÃO
+    # 🔥 OUTROS CAMPOS
     # =========================
-    if "id" not in df_dados.columns:
-        df_dados["id"] = df_dados.index
+    for col in ["titular", "mes", "descricao", "categoria", "subcategoria", "tipo_despesa", "status"]:
+        if col in df_dados.columns:
+            df_dados[col] = df_dados[col].astype(str)
 
     # =========================
-    # 🧼 LIMPEZA FINAL
+    # 🔥 LIMPEZA FINAL
     # =========================
-    df_dados = df_dados.dropna(subset=["Data"])
+    df_dados = df_dados.dropna(subset=["data"])
     df_dados = df_dados.drop_duplicates()
 
     return df_dados, df_meta
 
 
 # =========================
-# 💾 SALVAR (ATALHO OPCIONAL)
+# 💾 SALVAR
 # =========================
 def salvar_dados(linha):
     inserir_transacao(linha)
 
 
 # =========================
-# ✏️ ATUALIZAR (ATALHO OPCIONAL)
+# ✏️ ATUALIZAR
 # =========================
 def atualizar_dados(id_linha, novos_dados):
     atualizar_transacao(id_linha, novos_dados)
