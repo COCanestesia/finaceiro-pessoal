@@ -69,33 +69,25 @@ def sistema_financeiro():
     # =========================
     # 💰 SALDO (SEGURO)
     # =========================
-
     df, meta = carregar_dados()
 
-    if df is None or df.empty:
-        st.warning("Sem dados ainda")
-        return
+    if df is None:
+        df = pd.DataFrame()
 
     saldos = calcular_saldos(df)
 
-    if not saldos:
-        st.warning("Sem saldo para exibir")
-    else:
+    qtd = len(saldos)
+    cols = st.columns(qtd)
 
-        qtd = len(saldos)
+    for i, (nome, saldo) in enumerate(saldos.items()):
 
-        if qtd > 0:
-            cols = st.columns(qtd)
+        icone = "💵" if "Dinheiro" in nome else "🏦"
+        cor = "🔴" if saldo < 0 else "🟢"
 
-            for i, (nome, saldo) in enumerate(saldos.items()):
-
-                icone = "💵" if "Dinheiro" in nome else "🏦"
-                cor = "🔴" if saldo < 0 else "🟢"
-
-                cols[i].metric(
-                    label=f"{icone} {nome}",
-                    value=f"R$ {saldo:,.2f}"
-                )
+        cols[i].metric(
+            label=f"{icone} {nome}",
+            value=f"R$ {saldo:,.2f}"
+        )
     
             
     # -------------------------
