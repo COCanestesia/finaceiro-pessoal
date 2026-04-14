@@ -1,8 +1,11 @@
 import pandas as pd
 import streamlit as st
 from datetime import datetime
+
+# 🧠 cérebro (somente leitura + regras)
 from data import carregar_dados, calcular_saldos
 
+# 💾 banco (CRUD real)
 from database import (
     inserir_transacao,
     atualizar_transacao,

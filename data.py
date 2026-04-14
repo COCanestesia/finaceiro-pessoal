@@ -1,5 +1,6 @@
 import pandas as pd
 from database import buscar_transacoes, buscar_metas
+from database import atualizar_transacao
 
 
 # =========================
