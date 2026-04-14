@@ -5,6 +5,10 @@ from data import carregar_dados, salvar_dados, atualizar_dados
 from datetime import datetime
 from analise import mostrar_kpis
 import plotly.express as px
+from streamlit_plotly_events import plotly_events
+import plotly.graph_objects as go
+import calendar
+
 def br(valor):
     """Formata número em padrão brasileiro"""
     return f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -86,10 +90,11 @@ def dashboard_financeiro():
     # ==========================
     # ABAS
     # ==========================
-    aba1, aba2 = st.tabs([
-        "📊 Resumo",
-        "📈 Gráficos"
-    ])
+    aba1, aba2, aba3 = st.tabs([
+        "Resumo",
+        "Gráficos",
+        "Interativo"
+        ])
 
     with aba1:
 
@@ -515,6 +520,368 @@ def dashboard_financeiro():
             )
 
         st.plotly_chart(fig2, use_container_width=True)
+    # ==========================
+    # 🧠 ABA 3 - INTERATIVO (FINAL)
+    # ==========================
+    with aba3:
+
+        st.subheader("📊 Análise Interativa")
+
+        # ==========================
+        # 🔥 BASE LIMPA
+        # ==========================
+        df_interativo = df_total.copy()
+
+        # 🔥 GARANTE COLUNA SUBCATEGORIA
+        if "SUBCATEGORIA" not in df_interativo.columns:
+            df_interativo["SUBCATEGORIA"] = "Outros"
+
+        df_interativo["SUBCATEGORIA"] = (
+            df_interativo["SUBCATEGORIA"]
+            .fillna("Outros")
+            .astype(str)
+            .str.upper()
+            .str.strip()
+        )
+
+        # 🔥 GARANTE VALOR NUMÉRICO
+        df_interativo["VALOR"] = pd.to_numeric(
+            df_interativo["VALOR"], errors="coerce"
+        ).fillna(0)
+
+        df_interativo["CATEGORIA"] = (
+            df_interativo["CATEGORIA"]
+            .astype(str)
+            .str.upper()
+            .str.strip()
+        )
+
+        # ==========================
+        # 📅 FILTRO DE MÊS
+        # ==========================
+        meses = st.multiselect(
+            "Selecione os meses",
+            options=sorted(df_interativo["MÊS"].dropna().unique()),
+            default=sorted(df_interativo["MÊS"].dropna().unique())
+        )
+
+        df_filtrado = df_interativo[
+            df_interativo["MÊS"].isin(meses)
+        ].copy()
+
+        df_filtrado = df_filtrado.drop_duplicates()
+
+        # ==========================
+        # 🧠 ESTADOS
+        # ==========================
+        if "filtro_categoria" not in st.session_state:
+            st.session_state.filtro_categoria = None
+
+        if "filtro_subcategoria" not in st.session_state:
+            st.session_state.filtro_subcategoria = None
+
+        # ==========================
+        # 📊 GRÁFICO CATEGORIA
+        # ==========================
+        df_cat = (
+            df_filtrado
+            .groupby("CATEGORIA", as_index=False)["VALOR"]
+            .sum()
+            .sort_values(by="VALOR", ascending=False)
+        )
+
+        df_cat = df_cat[df_cat["VALOR"] > 0]
+
+        fig_cat = go.Figure()
+
+        fig_cat.add_trace(go.Bar(
+            x=df_cat["VALOR"],
+            y=df_cat["CATEGORIA"],
+            orientation='h',
+            text=[f"R$ {v:,.2f}" for v in df_cat["VALOR"]],
+            textposition='outside'
+        ))
+
+        fig_cat.update_layout(
+            title="💸 Gasto por Categoria",
+            xaxis=dict(tickprefix="R$ "),
+    
+            # 🔥 melhora alinhamento das categorias
+            yaxis=dict(
+                categoryorder="total ascending",
+                automargin=True
+            ),
+
+            # 🔥 evita cortar ou desalinhamento
+            margin=dict(l=180),
+
+            # 🔥 altura dinâmica (opcional mas recomendado)
+            height=40 * len(df_cat)
+        )
+
+        selected = st.plotly_chart(
+            fig_cat,
+            use_container_width=True,
+            on_select="rerun"
+        )
+
+        # ==========================
+        # 🎯 CLIQUE CATEGORIA
+        # ==========================
+        if selected and "selection" in selected:
+            pontos = selected["selection"]["points"]
+            if pontos:
+                st.session_state.filtro_categoria = pontos[0]["y"]
+                st.session_state.filtro_subcategoria = None  # reset sub
+
+            # ==========================
+            # 📊 FILTRO CATEGORIA
+            # ==========================
+            if st.session_state.filtro_categoria:
+                df_filtrado = df_filtrado[
+                    df_filtrado["CATEGORIA"] == st.session_state.filtro_categoria
+                ]
+                st.info(f"Categoria: {st.session_state.filtro_categoria}")
+
+            # ==========================
+            # 📊 SUBCATEGORIA
+            # ==========================
+            df_sub = (
+                df_filtrado
+                .groupby("SUBCATEGORIA", as_index=False)["VALOR"]
+                .sum()
+                .sort_values(by="VALOR", ascending=False)
+            )
+
+            fig_sub = go.Figure()
+
+            fig_sub.add_trace(go.Bar(
+                x=df_sub["VALOR"],
+                y=df_sub["SUBCATEGORIA"],
+                orientation='h',
+                text=[f"R$ {v:,.2f}" for v in df_sub["VALOR"]],
+                textposition='outside'
+            ))
+
+            fig_sub.update_layout(
+                title="📂 Subcategorias",
+                xaxis=dict(tickprefix="R$ "),
+                height=400
+            )
+
+            selected_sub = st.plotly_chart(
+                fig_sub,
+                use_container_width=True,
+                on_select="rerun"
+            )
+
+            # ==========================
+            # 🎯 CLIQUE SUBCATEGORIA
+            # ==========================
+            if selected_sub and "selection" in selected_sub:
+                pontos = selected_sub["selection"]["points"]
+                if pontos:
+                    st.session_state.filtro_subcategoria = pontos[0]["y"]
+
+        # ==========================
+        # 📊 FILTRO FINAL
+        # ==========================
+        if st.session_state.filtro_subcategoria:
+            df_filtrado = df_filtrado[
+                df_filtrado["SUBCATEGORIA"] == st.session_state.filtro_subcategoria
+            ]
+            st.success(f"Subcategoria: {st.session_state.filtro_subcategoria}")
+
+        # ==========================
+        # 💰 KPI
+        # ==========================
+        total = df_filtrado["VALOR"].sum()
+        st.markdown(f"## 💰 R$ {total:,.2f}")
+
+        # ==========================
+        # 📈 EVOLUÇÃO
+        # ==========================
+        df_evo = (
+            df_filtrado
+            .groupby("DATA", as_index=False)["VALOR"]
+            .sum()
+        )
+
+        fig_evo = px.line(df_evo, x="DATA", y="VALOR", markers=True)
+        fig_evo.update_layout(yaxis_tickprefix="R$ ")
+
+        st.plotly_chart(fig_evo, use_container_width=True)
+
+        # ==========================
+        # 📋 TABELA
+        # ==========================
+        st.markdown("### 📋 Detalhamento")
+
+        df_tabela = df_filtrado.copy()
+        df_tabela["DATA"] = df_tabela["DATA"].dt.strftime("%d")
+
+        colunas = ["MÊS", "DATA", "CATEGORIA", "SUBCATEGORIA", "VALOR", "DESCRIÇÃO"]
+
+        st.dataframe(
+            df_tabela[colunas]
+            .sort_values(by="VALOR", ascending=False)
+            .style.format({"VALOR": "R$ {:,.2f}"}),
+            use_container_width=True,
+            height=400
+        )
+        
+        # ==========================
+        # 🧠 INTELIGÊNCIA FINANCEIRA
+        # ==========================
+
+        st.markdown("---")
+        st.subheader("🧠 Inteligência Financeira")
+
+        # ==========================
+        # 🔮 PREVISÃO DO MÊS
+        # ==========================
+
+
+        hoje = datetime.now()
+        dia_atual = hoje.day
+        dias_mes = calendar.monthrange(hoje.year, hoje.month)[1]
+
+        df_mes_atual = df_total[
+            (df_total["DATA"].dt.month == hoje.month) &
+            (df_total["DATA"].dt.year == hoje.year) &
+            (df_total["CLASSIFICAÇÃO"] == "DESPESA")
+        ].copy()
+
+        df_mes_atual["VALOR"] = pd.to_numeric(df_mes_atual["VALOR"], errors="coerce").fillna(0)
+
+        gasto_atual = df_mes_atual["VALOR"].sum()
+
+        previsao = (gasto_atual / dia_atual) * dias_mes if dia_atual > 0 else 0
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.metric("💰 Gasto atual", f"R$ {gasto_atual:,.2f}")
+
+        with col2:
+            st.metric("🔮 Previsão do mês", f"R$ {previsao:,.2f}")
+
+        if previsao > gasto_atual * 1.5:
+            st.warning("⚠️ Ritmo de gasto alto — tendência de estourar o orçamento")
+
+        # ==========================
+        # 🚨 GASTOS ANORMAIS
+        # ==========================
+        st.markdown("---")
+        st.subheader("🚨 Gastos Anormais")
+
+        df_outlier = df_total[df_total["CLASSIFICAÇÃO"] == "DESPESA"].copy()
+
+        df_outlier["VALOR"] = pd.to_numeric(df_outlier["VALOR"], errors="coerce").fillna(0)
+
+        # média e desvio padrão (mais profissional)
+        stats = df_outlier.groupby("SUBCATEGORIA")["VALOR"].agg(["mean", "std"]).reset_index()
+
+        df_outlier = df_outlier.merge(stats, on="SUBCATEGORIA", how="left")
+
+        df_outlier["anomalia"] = df_outlier["VALOR"] > (df_outlier["mean"] + 2 * df_outlier["std"])
+
+        anomalias = df_outlier[df_outlier["anomalia"]]
+
+        if not anomalias.empty:
+            for _, row in anomalias.iterrows():
+                st.error(
+                    f"🚨 {row['SUBCATEGORIA']} → R$ {row['VALOR']:,.2f} "
+                    f"(normal ~ R$ {row['mean']:,.2f})"
+                )
+        else:
+            st.success("✅ Nenhum gasto anormal detectado")
+
+        # ==========================
+        # 📈 ANÁLISE DE SUBIDA / QUEDA
+        # ==========================
+        st.markdown("---")
+        st.subheader("📈 Análise de Variação")
+ 
+        df_total["Mes"] = df_total["DATA"].dt.to_period("M").dt.to_timestamp()
+
+        df_mensal = (
+            df_total[df_total["CLASSIFICAÇÃO"] == "DESPESA"]
+            .groupby(["Mes", "CATEGORIA", "SUBCATEGORIA"])["VALOR"]
+            .sum()
+            .reset_index()
+        )
+
+        meses = sorted(df_mensal["Mes"].unique())
+
+        if len(meses) >= 2:
+
+            mes_atual = meses[-1]
+            mes_anterior = meses[-2]
+
+            df_atual = df_mensal[df_mensal["Mes"] == mes_atual]
+            df_anterior = df_mensal[df_mensal["Mes"] == mes_anterior]
+
+            df_comp = pd.merge(
+                df_atual,
+                df_anterior,
+                on=["CATEGORIA", "SUBCATEGORIA"],
+                how="outer",
+                suffixes=("_atual", "_anterior")
+            ).fillna(0)
+
+            df_comp["dif"] = df_comp["VALOR_atual"] - df_comp["VALOR_anterior"]
+
+            df_comp["pct"] = df_comp.apply(
+                lambda x: (x["dif"] / x["VALOR_anterior"] * 100)
+                if x["VALOR_anterior"] > 0 else 0,
+                axis=1
+            )
+
+            for _, row in df_comp.iterrows():
+
+                cat = row["CATEGORIA"]
+                sub = row["SUBCATEGORIA"]
+                dif = row["dif"]
+                pct = row["pct"]
+ 
+                if dif > 0 and pct > 30:
+                    st.error(f"🚨 {cat} → {sub} aumentou {pct:.0f}% (+R$ {dif:,.2f})")
+
+                elif dif > 0 and pct > 10:
+                    st.warning(f"⚠️ {cat} → {sub} subiu {pct:.0f}%")
+
+                elif dif < 0:
+                    st.success(f"✅ {cat} → {sub} reduziu {abs(pct):.0f}%")
+
+            # 🔥 TOP AUMENTOS
+            st.markdown("### 🔥 Maiores aumentos")
+
+            top = df_comp.sort_values(by="dif", ascending=False).head(5)
+
+            st.dataframe(
+                top[["CATEGORIA", "SUBCATEGORIA", "dif", "pct"]]
+                .rename(columns={
+                    "dif": "Aumento (R$)",
+                    "pct": "% aumento"
+                })
+                .style.format({
+                    "Aumento (R$)": "R$ {:,.2f}",
+                    "% aumento": "{:.1f}%"
+                }),
+                use_container_width=True
+            )
+
+        else:
+            st.info("📊 Ainda não há dados suficientes para comparação mensal")
+
+        # ==========================
+        # 🔄 RESET
+        # ==========================
+        if st.button("🔄 Limpar tudo"):
+            st.session_state.filtro_categoria = None
+            st.session_state.filtro_subcategoria = None
+            st.rerun()
 # ==========================
 # EXECUÇÃO
 # ==========================

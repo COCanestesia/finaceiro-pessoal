@@ -1,55 +1,78 @@
 # app_financeiro.py
-import gspread
 import pandas as pd
 import streamlit as st
-from google.oauth2.service_account import Credentials
-
-
-# -------------------------
-# 🔐 CONEXÃO GOOGLE SHEETS
-# -------------------------
-def conectar_google():
-    scope = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
-
-    creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=scope
-    )
-
-    client = gspread.authorize(creds)
-
-    planilha = client.open_by_url(
-        "https://docs.google.com/spreadsheets/d/1OvodwLlhguQmbKQPXbQiP9DkZ5IDrq6WESNFEBT_TTo/edit?usp=sharing"
-    )
-
-    aba = planilha.worksheet("Dados")
-
-    return aba
+from database import inserir_transacao, buscar_transacoes
+from datetime import datetime
+from database import atualizar_transacao
 
 # -------------------------
 # 📥 CARREGAR DADOS
 # -------------------------
 def carregar_dados():
-    aba = conectar_google()
-    dados = aba.get_all_records()
-    df = pd.DataFrame(dados)
+    from database import buscar_transacoes
+    import pandas as pd
 
+    df = buscar_transacoes()
+
+    # 🔥 MANTER COMPATIBILIDADE COM SEU SISTEMA
+    if df.empty:
+        return df
+
+    # =========================
+    # 🧾 PADRONIZAR COLUNAS
+    # =========================
+    df.columns = df.columns.str.strip()
+
+    # Simular linha do Sheets (pra não quebrar seu editar)
     df["linha_sheet"] = df.index + 2
 
-    # ✅ CORREÇÃO DO VALOR
-    df["Valor"] = (
-        df["Valor"]
-        .astype(str)
-        .str.replace("R$", "", regex=False)
-        .str.replace(" ", "", regex=False)
-        .str.replace(".", "", regex=False)
-        .str.replace(",", ".", regex=False)
-    )
+    # =========================
+    # 💰 VALOR
+    # =========================
+    if "valor" in df.columns:
+        df["Valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
+    elif "Valor" in df.columns:
+        df["Valor"] = pd.to_numeric(df["Valor"], errors="coerce").fillna(0)
 
-    df["Valor"] = pd.to_numeric(df["Valor"], errors="coerce").fillna(0)
+    # =========================
+    # 📅 DATA
+    # =========================
+    if "data" in df.columns:
+        df["Data"] = pd.to_datetime(df["data"], errors="coerce")
+
+    # =========================
+    # 📅 DATA VENCIMENTO
+    # =========================
+    if "data_vencimento" in df.columns:
+        df["Data Vencimento"] = pd.to_datetime(df["data_vencimento"], errors="coerce")
+    else:
+        df["Data Vencimento"] = pd.NaT
+
+    # =========================
+    # 📌 STATUS
+    # =========================
+    if "status" not in df.columns:
+        df["Status"] = "Pendente"
+    else:
+        df["Status"] = df["status"]
+
+    # =========================
+    # 🧠 MAPEAR NOMES (CRÍTICO)
+    # =========================
+    mapa = {
+        "titular": "Titular",
+        "mes": "Mês",
+        "descricao": "Descrição",
+        "conta": "Conta",
+        "categoria": "Categoria",
+        "subcategoria": "Subcategoria",
+        "tipo_despesa": "Tipo de despesa",
+        "classificacao": "Classificação"
+    }
+
+    for col_banco, col_app in mapa.items():
+        if col_banco in df.columns:
+            df[col_app] = df[col_banco]
 
     return df
 
@@ -57,8 +80,13 @@ def carregar_dados():
 # 💾 SALVAR DADOS
 # -------------------------
 def salvar_dados(linha):
-    aba = conectar_google()
-    aba.append_row(linha)
+    from database import inserir_transacao
+
+    try:
+        inserir_transacao(linha)
+    except Exception as e:
+        import streamlit as st
+        st.error(f"Erro ao salvar no banco: {e}")
 
 # =========================
 # 🚀 FUNÇÃO PRINCIPAL
@@ -68,6 +96,64 @@ def sistema_financeiro():
     st.title("💰 Sistema Financeiro")
 
     df_topo = carregar_dados()
+
+
+    # =========================
+    # 🚨 ALERTAS DE VENCIMENTO
+    # =========================
+    def verificar_alertas(df):
+
+        hoje = datetime.today().date()
+        avisos = []
+
+        if df.empty:
+            return avisos
+
+        for _, row in df.iterrows():
+
+            # Só despesas
+            if row.get("Classificação") != "Despesa":
+                continue
+
+            # Ignora pagos
+            if row.get("Status") == "Pago":
+                continue
+
+            vencimento = row.get("Data Vencimento")
+
+            # 🔥 TRAVA DE SEGURANÇA (ESSENCIAL)
+            if pd.isna(vencimento):
+                continue
+
+            try:
+                vencimento = pd.to_datetime(vencimento).date()
+            except:
+                continue
+
+            dias = (vencimento - hoje).days
+
+            if dias < 0:
+                avisos.append(f"❌ {row['Descrição']} está vencido há {abs(dias)} dia(s)")
+            elif dias <= 3:
+                avisos.append(f"⚠️ {row['Descrição']} vence em {dias} dia(s)")
+
+        return avisos
+
+
+    avisos = verificar_alertas(df_topo)
+
+    # 🔥 CAIXA DE ALERTA BONITA
+    if avisos:
+        st.markdown("### 🚨 Contas para atenção")
+
+        for aviso in avisos:
+            if "❌" in aviso:
+                st.error(aviso)
+            else:
+                st.warning(aviso)
+    else:
+        st.success("✅ Nenhuma conta pendente ou próxima do vencimento")
+
 
     # =========================
     # 💰 SALDOS NO TOPO
@@ -98,11 +184,17 @@ def sistema_financeiro():
             else:
                 saldos["Dinheiro (Caixa físico)"] += valor
 
-    # MOSTRAR
+    # 🔥 EXIBIR SALDOS
     colunas = st.columns(len(saldos))
+
     for i, (nome, saldo) in enumerate(saldos.items()):
         icone = "💵" if nome == "Dinheiro (Caixa físico)" else "🏦"
-        colunas[i].metric(f"{icone} {nome}", f"R$ {saldo:,.2f}")
+
+        # Cor dinâmica (verde positivo / vermelho negativo)
+        if saldo < 0:
+            colunas[i].markdown(f"### {icone} {nome}\n🔴 R$ {saldo:,.2f}")
+        else:
+            colunas[i].markdown(f"### {icone} {nome}\n🟢 R$ {saldo:,.2f}")
     # -------------------------
     # 📌 CATEGORIAS
     # -------------------------
@@ -131,7 +223,12 @@ def sistema_financeiro():
     with tab1:
         st.subheader("Adicionar lançamento")
 
+        # Inicializar categorias
+        if "categorias" not in st.session_state:
+            st.session_state.categorias = ["Alimentação", "Transporte", "Lazer"]
+
         with st.form("form_dados", clear_on_submit=True):
+
             titular = st.text_input("Titular")
             data = st.date_input("Data")
 
@@ -141,45 +238,56 @@ def sistema_financeiro():
             ])
 
             descricao = st.text_input("Descrição")
-        
+    
             # Lista de bancos
             bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
 
             # Contas possíveis
             contas = ["ESPÉCIE"] + [f"TRANSFERÊNCIA BANCÁRIA ({banco})" for banco in bancos]
 
-            # Selectbox
             conta = st.selectbox("Conta", contas)
             valor = st.number_input("Valor", min_value=0.0)
+            # NOVOS CAMPOS
+            data_vencimento = st.date_input("Data de vencimento", value=datetime.today().date())
 
-            # Inicializar categorias no session_state
-            if "categorias" not in st.session_state:
-                st.session_state.categorias = ["Alimentação", "Transporte", "Lazer"]  # exemplo inicial
+            status = st.selectbox("Status", ["Pendente", "Pago"])
 
             # -----------------------
-            # Categoria dinâmica
+            # ✅ CATEGORIA DINÂMICA (DENTRO DO SELECT)
             # -----------------------
             opcoes = st.session_state.categorias + ["➕ Nova categoria"]
+
             categoria = st.selectbox("Categoria", opcoes)
 
+            # Campo só aparece se escolher nova categoria
+            nova_categoria = None
             if categoria == "➕ Nova categoria":
-                nova = st.text_input("Nova categoria")
-    
-                # Só adiciona se o usuário digitar algo
-                if nova:
-                    if nova not in st.session_state.categorias:
-                        st.session_state.categorias.append(nova)
-                        st.success(f"Categoria '{nova}' adicionada!")
-        
-                    # Atualiza o selectbox para mostrar a nova categoria
-                    categoria = nova
-            subcategoria = st.text_input("Subcategoria")  # Nova coluna
+                nova_categoria = st.text_input("Digite a nova categoria")
+
+            subcategoria = st.text_input("Subcategoria")
             tipo_despesa = st.text_input("Tipo de despesa")
+
             classificacao = st.selectbox("Classificação", ["Receita", "Despesa"])
 
             submit = st.form_submit_button("Salvar")
 
+            # -----------------------
+            # 💾 SALVAR
+            # -----------------------
             if submit:
+
+                # 🔥 Trata nova categoria
+                if categoria == "➕ Nova categoria":
+                    if nova_categoria:
+                        if nova_categoria not in st.session_state.categorias:
+                            st.session_state.categorias.append(nova_categoria)
+                            categoria = nova_categoria
+                        else:
+                            categoria = nova_categoria
+                    else:
+                        st.warning("Digite o nome da nova categoria!")
+                        st.stop()
+
                 linha = [
                     titular,
                     str(data),
@@ -190,13 +298,15 @@ def sistema_financeiro():
                     categoria,
                     subcategoria,
                     tipo_despesa,
-                    classificacao
+                    classificacao,
+                    str(data_vencimento),  # NOVO
+                    status                 # NOVO 
                 ]
 
                 salvar_dados(linha)
                 st.success("Salvo no Google Sheets!")
 
-                st.rerun()  # 🔥 ESSA LINHA FAZ ATUALIZAR NA HORA
+                st.rerun()
 
     # -------------------------
     # 📊 ABA 2 - CONSULTA
@@ -358,40 +468,91 @@ def sistema_financeiro():
 
         linha = df.loc[linha_sel]
 
-        # Campos editáveis
-        titular = st.text_input("Titular", linha["Titular"])
-        data = st.date_input("Data", pd.to_datetime(linha["Data"]))
-        mes = st.text_input("Mês", linha["Mês"])
-        descricao = st.text_input("Descrição", linha["Descrição"])
-        conta = st.selectbox("Conta", ["ESPÉCIE", "TRANSFERÊNCIA BANCÁRIA"])
-        valor = st.number_input("Valor", value=float(linha["Valor"]))
-        categoria = st.text_input("Categoria", linha["Categoria"])
-        subcategoria = st.text_input("Subcategoria", linha.get("Subcategoria", ""))
-        tipo = st.text_input("Tipo de despesa", linha["Tipo de despesa"])
-        classificacao = st.selectbox("Classificação", ["Receita", "Despesa"])
+        # 🔥 TRATAR VALORES (evita erro com NaN)
+        titular_val = linha.get("Titular", "")
+        data_val = pd.to_datetime(linha.get("Data"), errors="coerce")
+        mes_val = linha.get("Mês", "")
+        descricao_val = linha.get("Descrição", "")
+        conta_val = linha.get("Conta", "ESPÉCIE")
+        valor_val = float(linha.get("Valor", 0))
+        categoria_val = linha.get("Categoria", "")
+        subcategoria_val = linha.get("Subcategoria", "")
+        tipo_val = linha.get("Tipo de despesa", "")
+        classificacao_val = linha.get("Classificação", "Despesa")
+        status_val = linha.get("Status", "Pendente")
+        data_venc_val = pd.to_datetime(linha.get("Data Vencimento"), errors="coerce")
 
-        # Botão salvar
+        # -------------------------
+        # CAMPOS EDITÁVEIS
+        # -------------------------
+        titular = st.text_input("Titular", titular_val)
+
+        data = st.date_input(
+            "Data",
+            data_val if pd.notnull(data_val) else pd.Timestamp.today()
+        )
+
+        mes = st.text_input("Mês", mes_val)
+
+        descricao = st.text_input("Descrição", descricao_val)
+
+        conta = st.selectbox(
+            "Conta",
+            ["ESPÉCIE", "TRANSFERÊNCIA BANCÁRIA (Itaú)", "TRANSFERÊNCIA BANCÁRIA (Nubank)"],
+            index=0 if conta_val not in ["ESPÉCIE", "TRANSFERÊNCIA BANCÁRIA (Itaú)", "TRANSFERÊNCIA BANCÁRIA (Nubank)"] 
+            else ["ESPÉCIE", "TRANSFERÊNCIA BANCÁRIA (Itaú)", "TRANSFERÊNCIA BANCÁRIA (Nubank)"].index(conta_val)
+        )
+
+        valor = st.number_input("Valor", value=valor_val)
+
+        categoria = st.text_input("Categoria", categoria_val)
+
+        subcategoria = st.text_input("Subcategoria", subcategoria_val)
+
+        tipo = st.text_input("Tipo de despesa", tipo_val)
+
+        classificacao = st.selectbox(
+            "Classificação",
+            ["Receita", "Despesa"],
+            index=0 if classificacao_val == "Receita" else 1
+        )
+
+        # 🔥 CAMPOS NOVOS (IMPORTANTES)
+        data_vencimento = st.date_input(
+            "Data de vencimento",
+            data_venc_val if pd.notnull(data_venc_val) else pd.Timestamp.today()
+        )
+
+        status = st.selectbox(
+            "Status",
+            ["Pendente", "Pago"],
+            index=0 if status_val == "Pendente" else 1
+        )
+
+
         if st.button("💾 Salvar alteração"):
-            aba = conectar_google()
 
-            numero_linha = int(linha["linha_sheet"])
+            id_linha = int(linha["id"])  # 🔥 agora é ID do banco
 
-            novos_dados = [
-                titular,
-                str(data),
-                mes,
-                descricao,
-                conta,
-                valor,
-                categoria,
-                subcategoria,
-                tipo,
-                classificacao
-            ]
+        novos_dados = [
+            titular,
+            str(data),
+            mes,
+            descricao,
+            conta,
+            valor,
+            categoria,
+            subcategoria,
+            tipo,
+            classificacao,
+            str(data_vencimento),  # se tiver no seu form
+            status                 # se tiver no seu form
+        ]
 
-            aba.update(f"A{numero_linha}:I{numero_linha}", [novos_dados])
+    atualizar_transacao(id_linha, novos_dados)
 
-            st.success("Alteração salva com sucesso!")
+    st.success("Alteração salva no banco!")
+    st.rerun()
 
     # -------------------------
     # 💰 ABA 4 - RESUMO DE SALDOS
