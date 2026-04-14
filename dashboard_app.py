@@ -1,12 +1,13 @@
-# dashboard_financeiro.py
 import streamlit as st
 import pandas as pd
-from data import carregar_dados, salvar_dados, atualizar_dados
+
+from data import carregar_dados, atualizar_dados
 from datetime import datetime
 from analise import mostrar_kpis
+
 import plotly.express as px
-from streamlit_plotly_events import plotly_events
 import plotly.graph_objects as go
+from streamlit_plotly_events import plotly_events
 import calendar
 
 def br(valor):

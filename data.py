@@ -1,11 +1,10 @@
 import pandas as pd
-from database import (
-    buscar_transacoes,
-    buscar_metas,
-    inserir_transacao,
-    atualizar_transacao
-)
+from database import buscar_transacoes, buscar_metas, inserir_transacao, atualizar_transacao
 
+
+# =========================
+# 📥 CARREGAR DADOS (DASHBOARD)
+# =========================
 def carregar_dados():
 
     df_dados = buscar_transacoes()
@@ -15,12 +14,12 @@ def carregar_dados():
         return df_dados, df_meta
 
     # =========================
-    # 🧾 LIMPEZA DE COLUNAS
+    # 🧹 LIMPEZA
     # =========================
     df_dados.columns = df_dados.columns.str.strip()
 
     # =========================
-    # 🔥 PADRONIZAÇÃO
+    # 🔥 PADRONIZAÇÃO PRINCIPAL
     # =========================
 
     # ID
@@ -53,9 +52,50 @@ def carregar_dados():
     if "categoria" in df_dados.columns:
         df_dados["Categoria"] = df_dados["categoria"]
 
+    # SUBCATEGORIA
+    if "subcategoria" in df_dados.columns:
+        df_dados["Subcategoria"] = df_dados["subcategoria"]
+
+    # TIPO DESPESA
+    if "tipo_despesa" in df_dados.columns:
+        df_dados["Tipo de despesa"] = df_dados["tipo_despesa"]
+
+    # DATA VENCIMENTO
+    if "data_vencimento" in df_dados.columns:
+        df_dados["Data Vencimento"] = pd.to_datetime(df_dados["data_vencimento"], errors="coerce")
+    else:
+        df_dados["Data Vencimento"] = pd.NaT
+
+    # STATUS
+    if "status" in df_dados.columns:
+        df_dados["Status"] = df_dados["status"].fillna("Pendente")
+    else:
+        df_dados["Status"] = "Pendente"
+
     # =========================
-    # ❌ REMOVIDO ERRO CRÍTICO
-    # NÃO FILTRAR VALOR > 0
+    # 🔑 ID PARA EDIÇÃO
     # =========================
+    if "id" not in df_dados.columns:
+        df_dados["id"] = df_dados.index
+
+    # =========================
+    # 🧼 LIMPEZA FINAL
+    # =========================
+    df_dados = df_dados.dropna(subset=["Data"])
+    df_dados = df_dados.drop_duplicates()
 
     return df_dados, df_meta
+
+
+# =========================
+# 💾 SALVAR (ATALHO OPCIONAL)
+# =========================
+def salvar_dados(linha):
+    inserir_transacao(linha)
+
+
+# =========================
+# ✏️ ATUALIZAR (ATALHO OPCIONAL)
+# =========================
+def atualizar_dados(id_linha, novos_dados):
+    atualizar_transacao(id_linha, novos_dados)

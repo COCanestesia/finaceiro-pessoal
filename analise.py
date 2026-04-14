@@ -7,56 +7,54 @@ import streamlit as st
 def br(valor):
     try:
         return f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    except Exception:
+    except:
         return "0,00"
 
 
 # ================================
-# 📊 KPIs PRINCIPAIS
+# 📊 KPIs PRINCIPAIS (CORRIGIDO)
 # ================================
 def mostrar_kpis(df):
 
-    # 🛡 segurança (evita erro se vier dataframe quebrado)
     if df.empty:
         st.warning("Sem dados disponíveis")
         return 0, 0, 0
 
-    # 🔥 GARANTE PADRÃO DO data.py
-    if "VALOR_AJUSTADO" not in df.columns:
-        df["VALOR_AJUSTADO"] = df["VALOR"]
-        df.loc[df["CLASSIFICAÇÃO"] == "DESPESA", "VALOR_AJUSTADO"] *= -1
+    # ================================
+    # 🔥 GARANTIR PADRÃO
+    # ================================
+    df["Classificação"] = df["Classificação"].astype(str).str.upper().str.strip()
+    df["Valor"] = df["Valor"].fillna(0)
 
     # ================================
-    # 📊 CÁLCULOS (OTIMIZADOS)
+    # 🔥 VALOR AJUSTADO (CORRETO)
     # ================================
-    receita = df.loc[df["CLASSIFICAÇÃO"] == "RECEITA", "VALOR"].sum()
-    despesa = df.loc[df["CLASSIFICAÇÃO"] == "DESPESA", "VALOR"].sum()
-    resultado = df["VALOR_AJUSTADO"].sum()
+    df["Valor_Ajustado"] = df["Valor"]
+
+    df.loc[df["Classificação"] == "DESPESA", "Valor_Ajustado"] *= -1
+
+    # ================================
+    # 📊 CÁLCULOS CORRETOS
+    # ================================
+    receita = df.loc[df["Classificação"] == "RECEITA", "Valor"].sum()
+    despesa = df.loc[df["Classificação"] == "DESPESA", "Valor"].sum()
+    resultado = df["Valor_Ajustado"].sum()
 
     percentual = (despesa / receita * 100) if receita > 0 else 0
 
     col1, col2, col3 = st.columns(3)
 
-    # ================================
     # 💰 RECEITA
-    # ================================
-    col1.metric(
-        "💰 Receita",
-        f"R$ {br(receita)}"
-    )
+    col1.metric("💰 Receita", f"R$ {br(receita)}")
 
-    # ================================
     # 💸 DESPESA
-    # ================================
     col2.metric(
         "💸 Despesa",
         f"R$ {br(despesa)}",
         f"{percentual:.1f}% da receita"
     )
 
-    # ================================
     # 📊 RESULTADO
-    # ================================
     if resultado >= 0:
         cor = "#00C853"
         status = "Lucro"
