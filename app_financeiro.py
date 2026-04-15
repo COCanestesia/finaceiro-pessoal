@@ -77,6 +77,11 @@ def sistema_financeiro():
     saldos = calcular_saldos(df)
 
     qtd = len(saldos)
+
+    if qtd < 1:
+        st.warning("Nenhum saldo disponível para exibir.")
+        st.stop()
+
     cols = st.columns(qtd)
 
     for i, (nome, saldo) in enumerate(saldos.items()):
