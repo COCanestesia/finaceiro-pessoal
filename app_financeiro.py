@@ -84,9 +84,10 @@ def sistema_financeiro():
     # -------------------------
     # 📑 ABAS
     # -------------------------
-    tab1, tab2 = st.tabs([
+    tab1, tab2, tab3 = st.tabs([
         "💾 Lançamentos",
         "📋 Consulta",
+        "📊 Resumo Financeiro"
     ])
 
     # -------------------------
@@ -361,3 +362,36 @@ def sistema_financeiro():
                         st.metric("Diferença", format_real(total_planejado - total_executado))
 
                     st.markdown("---")
+    # -------------------------
+    # 📊 ABA 3 - Resumo Financeiro
+    # -------------------------
+    with tab3:
+
+        st.subheader("📊 Resumo Financeiro")
+
+        df, _ = carregar_dados()
+        saldos = calcular_saldos(df)
+
+        if not saldos:
+            st.warning("Sem dados financeiros")
+            st.stop()
+        total = sum(saldos.values())
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("### 🏦 Bancos e Caixa")
+
+            for nome, valor in saldos.items():
+                cor = "🟢" if valor >= 0 else "🔴"
+                st.metric(label=f"{cor} {nome}", value=f"R$ {valor:,.2f}")
+
+        with col2:
+            st.markdown("### 💰 Total Geral")
+
+            cor_total = "🟢" if total >= 0 else "🔴"
+
+            st.metric(
+                label=f"{cor_total} Patrimônio Total",
+                value=f"R$ {total:,.2f}"
+            )
