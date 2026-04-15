@@ -28,6 +28,13 @@ def carregar_dados():
         .str.upper()
         .str.strip()
     )
+    df["status"] = (
+        df.get("status", "")
+        .fillna("")
+        .astype(str)
+        .str.upper()
+        .str.strip()
+    )
 
     # conta
     df["conta"] = df.get("conta", "ESPÉCIE").fillna("ESPÉCIE").astype(str)
@@ -87,10 +94,10 @@ def gerar_alertas_inteligentes(df):
 
     for _, row in df.iterrows():
 
-        if str(row.get("classificacao", "")).upper() != "DESPESA":
+        if str(row.get("classificacao", "")).upper().strip() != "DESPESA":
             continue
 
-        if str(row.get("status", "")).upper() == "PAGO":
+        if str(row.get("status", "")).upper().strip() == "PAGO":
             continue
 
         vencimento = row.get("data_vencimento")
@@ -108,18 +115,22 @@ def gerar_alertas_inteligentes(df):
 
         if dias < 0:
             nivel = "error"
+            risco = 100
             msg = f"🔴 {descricao} vencido há {abs(dias)} dia(s)"
 
         elif dias == 0:
             nivel = "warning"
+            risco = 90
             msg = f"🟠 {descricao} vence HOJE"
 
         elif dias <= 3:
             nivel = "warning"
+            risco = 70
             msg = f"🟡 {descricao} vence em {dias} dia(s)"
 
         elif dias <= 7:
             nivel = "info"
+            risco = 40
             msg = f"🔵 {descricao} vence em {dias} dia(s)"
 
         else:
@@ -129,7 +140,10 @@ def gerar_alertas_inteligentes(df):
             "nivel": nivel,
             "msg": msg,
             "dias": dias,
-            "descricao": descricao
+            "descricao": descricao,
+            "risco": risco
         })
+
+    avisos.sort(key=lambda x: x["risco"], reverse=True)
 
     return avisos
