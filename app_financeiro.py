@@ -3,7 +3,7 @@ import streamlit as st
 from datetime import datetime
 
 # 🧠 cérebro (somente leitura + regras)
-from data import carregar_dados, calcular_saldos
+from data import carregar_dados, calcular_saldos,gerar_alertas_inteligentes
 
 # 💾 banco (CRUD real)
 from database import (
@@ -25,46 +25,6 @@ def sistema_financeiro():
     saldos = calcular_saldos(df_topo)
 
 
-    # =========================
-    # 🚨 ALERTAS DE VENCIMENTO
-    # =========================
-    def verificar_alertas(df):
-
-        hoje = datetime.today().date()
-        avisos = []
-
-        if df.empty:
-            return avisos
-
-        for _, row in df.iterrows():
-
-            # ✔ usa coluna padronizada
-            if str(row.get("classificacao", "")).upper() != "DESPESA":
-                continue
-
-            if str(row.get("status", "")).upper() == "PAGO":
-                continue
-
-            vencimento = row.get("data_vencimento")
-
-            if pd.isna(vencimento):
-                continue
-
-            try:
-                vencimento = pd.to_datetime(vencimento).date()
-            except:
-                continue
-
-            dias = (vencimento - hoje).days
-
-            descricao = row.get("descricao", "Sem descrição")
-
-            if dias < 0:
-                avisos.append(f"❌ {descricao} está vencido há {abs(dias)} dia(s)")
-            elif dias <= 3:
-                avisos.append(f"⚠️ {descricao} vence em {dias} dia(s)")
-
-        return avisos
 
     # =========================
     # 💰 SALDO (SEGURO)
@@ -93,7 +53,21 @@ def sistema_financeiro():
             label=f"{icone} {nome}",
             value=f"R$ {saldo:,.2f}"
         )
-    
+    # =========================
+    # 🚨 ALERTAS DE VENCIMENTO
+    # =========================
+    avisos = gerar_alertas_inteligentes(df)
+
+    if avisos:
+        st.subheader("🚨 Alertas Inteligentes")
+
+        for a in avisos:
+            if a["nivel"] == "error":
+                st.error(a["msg"])
+            elif a["nivel"] == "warning":
+                st.warning(a["msg"])
+            else:
+                st.info(a["msg"])
             
     # -------------------------
     # 📌 CATEGORIAS

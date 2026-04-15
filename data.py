@@ -15,23 +15,15 @@ def carregar_dados():
         return pd.DataFrame(), df_meta
 
     df = df.copy()
-
-    # padroniza colunas
     df.columns = [str(c).strip().lower() for c in df.columns]
 
     # valor seguro
-    df["valor"] = (
-        df.get("valor", 0)
-        .astype(str)
-        .str.replace(".", "", regex=False)
-        .str.replace(",", ".", regex=False)
-    )
-    df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
+    df["valor"] = pd.to_numeric(df.get("valor", 0), errors="coerce").fillna(0)
 
-    # classificação
+    # classificação segura
     df["classificacao"] = (
-        df.get("classificacao", "DESPESA")
-        .fillna("DESPESA")
+        df.get("classificacao")
+        .fillna("")
         .astype(str)
         .str.upper()
         .str.strip()
@@ -84,3 +76,60 @@ def calcular_saldos(df):
             saldos["Dinheiro (Caixa físico)"] += valor
 
     return saldos
+
+def gerar_alertas_inteligentes(df):
+
+    hoje = pd.Timestamp.today().normalize()
+    avisos = []
+
+    if df is None or df.empty:
+        return avisos
+
+    for _, row in df.iterrows():
+
+        if str(row.get("classificacao", "")).upper() != "DESPESA":
+            continue
+
+        if str(row.get("status", "")).upper() == "PAGO":
+            continue
+
+        vencimento = row.get("data_vencimento")
+
+        if pd.isna(vencimento):
+            continue
+
+        try:
+            vencimento = pd.to_datetime(vencimento).normalize()
+        except:
+            continue
+
+        dias = (vencimento - hoje).days
+        descricao = row.get("descricao", "Sem descrição")
+
+        if dias < 0:
+            nivel = "error"
+            msg = f"🔴 {descricao} vencido há {abs(dias)} dia(s)"
+
+        elif dias == 0:
+            nivel = "warning"
+            msg = f"🟠 {descricao} vence HOJE"
+
+        elif dias <= 3:
+            nivel = "warning"
+            msg = f"🟡 {descricao} vence em {dias} dia(s)"
+
+        elif dias <= 7:
+            nivel = "info"
+            msg = f"🔵 {descricao} vence em {dias} dia(s)"
+
+        else:
+            continue
+
+        avisos.append({
+            "nivel": nivel,
+            "msg": msg,
+            "dias": dias,
+            "descricao": descricao
+        })
+
+    return avisos
