@@ -237,50 +237,47 @@ def dashboard_financeiro():
 
         # 📊 Barra com vermelho + destaque
         with col2:
+            
+            top = df_cat.iloc[0]
+            
+            html = f"""
+            <div style="
+                background: linear-gradient(135deg, #1E1E1E, #2A2A2A);
+                padding:22px;
+                border-radius:16px;
+                border:1px solid #333;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            ">
 
-            if not df_cat.empty:
-                top = df_cat.iloc[0]
-
-                valor_formatado = f"{top['valor']:,.2f}" \
-                    .replace(",", "X").replace(".", ",").replace("X", ".")
-
-                st.markdown(f"""
                 <div style="
-                    background: linear-gradient(135deg, #1E1E1E, #2A2A2A);
-                    padding:22px;
-                    border-radius:16px;
-                    border:1px solid #333;
-                    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                    font-size:12px;
+                    color:#AAAAAA;
+                    letter-spacing:0.5px;
                 ">
-
-                    <div style="
-                        font-size:12px;
-                        color:#AAAAAA;
-                        letter-spacing:0.5px;
-                    ">
-                        🚨 MAIOR GASTO
-                    </div>
-
-                    <div style="
-                        font-size:18px;
-                        font-weight:600;
-                        margin-top:8px;
-                        color:#FFFFFF;
-                    ">
-                        {top['categoria']}
-                    </div>
-
-                    <div style="
-                        font-size:28px;
-                        font-weight:700;
-                        color:#FF4B4B;
-                        margin-top:12px;
-                    ">
-                        R$ {valor_formatado}
-                    </div>
-
+                    🚨 MAIOR GASTO
                 </div>
-                """, unsafe_allow_html=True)
+
+                <div style="
+                    font-size:18px;
+                    font-weight:600;
+                    margin-top:8px;
+                    color:#FFFFFF;
+                ">
+                    {top['categoria']}
+                </div>
+
+                <div style="
+                    font-size:28px;
+                    font-weight:700;
+                    color:#FF4B4B;
+                    margin-top:12px;
+                ">
+                    R$ {top['valor']:,.2f}
+                </div>
+
+            </div>
+            """
+            st.markdown(html, unsafe_allow_html=True)
         # ==========================
         # 📋 TABELA DETALHADA
         # ==========================
