@@ -142,7 +142,7 @@ def dashboard_financeiro():
         # ==========================
         # 📊 PARA ONDE VAI O DINHEIRO
         # ==========================
-        df_cat = df[df["classificacao"] == "DESPESA"].groupby("categoria")["valor"].sum().reset_index()
+        df_cat = df[df[""] == "DESPESA"].groupby("categoria")["valor"].sum().reset_index()
         df_cat = df_cat.sort_values(by="valor", ascending=False)
 
         total_despesa = df_cat["valor"].sum()
@@ -184,13 +184,21 @@ def dashboard_financeiro():
             """, unsafe_allow_html=True)
 
         # ==========================
-        # 📊 GRÁFICOS 
+        # 📊 GRÁFICOS LADO A LADO
         # ==========================
-        col1 = st.columns(1)
+        col1, col2 = st.columns([2, 1])
 
         # 📊 Barra (substitui a pizza)
         with col1:
-            fig_bar_cat = px.bar(
+
+            max_valor = df_cat["valor"].max()
+
+            cores = [
+                "#FF4B4B" if v == max_valor else "#2A2A2A"
+                for v in df_cat["valor"]
+            ]
+
+            fig = px.bar(
                 df_cat,
                 x="valor",
                 y="categoria",
@@ -198,19 +206,69 @@ def dashboard_financeiro():
                 text="valor"
             )
 
-            fig_bar_cat.update_traces(
+            fig.update_traces(
+                marker_color=cores,
                 texttemplate="R$ %{text:,.0f}",
                 textposition="outside",
                 hovertemplate="<b>%{y}</b><br>R$ %{x:,.2f}<extra></extra>"
             )
 
-            fig_bar_cat.update_layout(
-                xaxis_tickprefix="R$ ",
-                yaxis_title="",
-                xaxis_title=""
+            fig.update_layout(
+                template="plotly_dark",
+                plot_bgcolor="#0E1117",
+                paper_bgcolor="#0E1117",
+                font=dict(color="white"),
+                
+                xaxis=dict(
+                    showgrid=False,
+                    visible=False
+                ),
+
+                yaxis=dict(
+                    title="",
+                    automargin=True
+                ),
+
+                margin=dict(l=120, r=20, t=20, b=20),
+                height=350
             )
 
-        st.plotly_chart(fig_bar_cat, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # 📊 Barra com vermelho + destaque
+        with col2:
+
+            top = df_cat.iloc[0]
+
+            st.markdown(f"""
+            <div style="
+                background:#1E1E1E;
+                padding:20px;
+                border-radius:12px;
+                border-left:5px solid #FF4B4B;
+            ">
+                <div style="color:#AAA; font-size:13px;">
+                    🚨 Maior gasto
+                </div>
+
+                <div style="
+                    font-size:18px;
+                    font-weight:600;
+                    margin-top:10px;
+                ">
+                    {top['categoria']}
+                </div>
+
+                <div style="
+                    font-size:22px;
+                    font-weight:700;
+                    color:#FF4B4B;
+                    margin-top:5px;
+                ">
+                    R$ {top['valor']:,.2f}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
         # ==========================
         # 📋 TABELA DETALHADA
