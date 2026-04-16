@@ -24,6 +24,9 @@ def dashboard_financeiro():
     # 🔥 CARREGAR DUAS ABAS
     df_total, df_meta = carregar_dados()
 
+    # 🔥 PADRONIZAÇÃO GLOBAL (OBRIGATÓRIO)
+    df_total.columns = df_total.columns.str.strip().str.lower()
+
     mes = st.sidebar.selectbox("Mês", list(range(1, 13)), index=datetime.now().month - 1)
     ano = st.sidebar.number_input("Ano", 2000, 2100, datetime.now().year)
     
@@ -38,33 +41,39 @@ def dashboard_financeiro():
     ].copy()  # 🔹 usar .copy() evita warning do pandas
 
     # 🔹 Corrigir a coluna VALOR para float
-    # Remove "R$", espaços e troca vírgula por ponto
-    df["VALOR"] = df["VALOR"].astype(str) \
+    df["valor"] = df["valor"].astype(str) \
         .str.replace("R$", "") \
-            .str.replace(".", "") \
-                .str.replace(",", ".") \
-                    .str.strip()
+        .str.replace(".", "") \
+        .str.replace(",", ".") \
+        .str.strip()
 
-    df["VALOR"] = pd.to_numeric(df["VALOR"], errors="coerce").fillna(0)
+    df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
     
     # 🔹 Remove duplicatas e linhas inválidas
     df = df.drop_duplicates()
-    df = df[df["VALOR"] > 0]  # ignora valores zerados ou inválidos
+    df = df[df["valor"] > 0]  # ignora valores zerados ou inválidos
     
     # Separar receita e despesa
-    df_receita = df[df["CLASSIFICAÇÃO"] == "RECEITA"].copy()
-    df_despesa = df[df["CLASSIFICAÇÃO"] == "DESPESA"].copy()
+    df_receita = df[df["classificacao"] == "RECEITA"].copy()
+    df_despesa = df[df["classificacao"] == "DESPESA"].copy()
 
     # Calcular KPIs
-    receita = df_receita["VALOR"].sum()
-    despesa = df_despesa["VALOR"].sum()
+    receita = df_receita["valor"].sum()
+    despesa = df_despesa["valor"].sum()
     resultado = receita - despesa
-
+    
+    df_cat = (
+        df[df["classificacao"] == "DESPESA"]
+        .groupby("categoria")["valor"]
+        .sum()
+        .reset_index()
+        .sort_values(by="valor", ascending=False)
+    )
 
     # ==========================
     # 📊 Categorias de despesa
     # ==========================
-    df_cat = df_despesa.groupby("CATEGORIA")["VALOR"].sum().reset_index()
+    df_cat = df_despesa.groupby("categoria")["valor"].sum().reset_index()
     df_cat = df_cat.sort_values(by="VALOR", ascending=False)
 
     with st.sidebar.expander("🎯 Metas", expanded=False):
@@ -73,7 +82,7 @@ def dashboard_financeiro():
         st.markdown("**Por categoria**")
 
         metas = {}
-        for categoria in df_cat["CATEGORIA"]:
+        for categoria in df_cat["categoria"]:
             metas[categoria] = st.number_input(
                 f"{categoria}",
                 min_value=0.0,
@@ -93,9 +102,8 @@ def dashboard_financeiro():
     # ==========================
     # ABAS
     # ==========================
-    aba1, aba2, aba3 = st.tabs([
+    aba1, aba2, = st.tabs([
         "Resumo",
-        "Gráficos",
         "Interativo"
         ])
 
@@ -143,7 +151,7 @@ def dashboard_financeiro():
         # ==========================
         # 📊 PARA ONDE VAI O DINHEIRO
         # ==========================
-        df_cat = df[df["CLASSIFICAÇÃO"] == "DESPESA"].groupby("CATEGORIA")["VALOR"].sum().reset_index()
+        df_cat = df[df["CLASSIFICAÇÃO"] == "DESPESA"].groupby("categoria")["VALOR"].sum().reset_index()
         df_cat = df_cat.sort_values(by="VALOR", ascending=False)
 
         total_despesa = df_cat["VALOR"].sum()
@@ -178,7 +186,7 @@ def dashboard_financeiro():
                 margin-bottom: 15px;
                 font-size: 16px;
             ">
-                <div><b>🚨 Maior gasto:</b> {top['CATEGORIA']}</div>
+                <div><b>🚨 Maior gasto:</b> {top['categoria']}</div>
                 <div><b>💰 R$ {top['VALOR']:,.2f}</b></div>
                 <div><b>📊 {top['Porcentagem']:.1f}%</b></div>
             </div>
@@ -189,20 +197,28 @@ def dashboard_financeiro():
         # ==========================
         col1, col2 = st.columns(2)
 
-        # 🥧 Pizza
         with col1:
-            fig_pie = px.pie(
+            fig_bar_cat = px.bar(
                 df_cat,
-                names="CATEGORIA",
-                values="VALOR"
+                x="valor",
+                y="categoria",
+                orientation="h",
+                text="valor"
             )
 
-            fig_pie.update_traces(
-                textinfo="percent+label",
-                hovertemplate="<b>%{label}</b><br>R$ %{value:,.2f}<br>%{percent}<extra></extra>"
+            fig_bar_cat.update_traces(
+                texttemplate="R$ %{text:,.0f}",
+                textposition="outside",
+                hovertemplate="<b>%{y}</b><br>R$ %{x:,.2f}<extra></extra>"
             )
 
-            st.plotly_chart(fig_pie, use_container_width=True)
+            fig_bar_cat.update_layout(
+                xaxis_tickprefix="R$ ",
+                yaxis_title="",
+                xaxis_title=""
+            )
+
+        st.plotly_chart(fig_bar_cat, use_container_width=True)
 
         # 📊 Barra com vermelho + destaque
         with col2:
@@ -211,7 +227,7 @@ def dashboard_financeiro():
 
             fig_bar = px.bar(
                 df_cat,
-                x="CATEGORIA",
+                x="categoria",
                 y="VALOR",
                 text="VALOR"
             )
@@ -238,7 +254,7 @@ def dashboard_financeiro():
 
         st.dataframe(
             df_cat.rename(columns={
-                "CATEGORIA": "Categoria",
+                "categoria": "categoria",
                 "VALOR": "Valor (R$)",
                 "Porcentagem": "% do total"
             }).style.format({
@@ -311,7 +327,7 @@ def dashboard_financeiro():
         # ==========================
         # 📊 COMPARAÇÃO
         # ==========================
-        df_cat["Meta"] = df_cat["CATEGORIA"].map(metas)
+        df_cat["Meta"] = df_cat["categoria"].map(metas)
 
         df_cat["% Meta"] = df_cat.apply(
             lambda x: (x["VALOR"] / x["Meta"]* 100)
@@ -326,7 +342,7 @@ def dashboard_financeiro():
 
         for _, row in df_cat.iterrows():
         
-            categoria = row["CATEGORIA"]
+            categoria = row["categoria"]
             valor = row["VALOR"]
             meta_cat = row["Meta"]
 
@@ -397,7 +413,7 @@ def dashboard_financeiro():
             "Escolha as colunas",
             df.columns.tolist(),
             default=[
-                "DATA",
+                "data",
                 "CATEGORIA",
                 "VALOR"
             ]
@@ -405,14 +421,14 @@ def dashboard_financeiro():
 
         df_view = df[colunas]
 
-        if "CATEGORIA" in df.columns:
+        if "categoria" in df.columns:
             categorias = st.multiselect(
-                "Filtrar Categoria",
-                df["CATEGORIA"].dropna().unique()
+                "Filtrar categoria",
+                df["categoria"].dropna().unique()
             )
 
             if categorias:
-                df_view = df_view[df_view["CATEGORIA"].isin(categorias)]
+                df_view = df_view[df_view["categoria"].isin(categorias)]
 
         ordenar = st.selectbox("Ordenar por", df_view.columns)
         ordem = st.radio("Ordem", ["Decrescente", "Crescente"])
@@ -454,79 +470,11 @@ def dashboard_financeiro():
             fig.update_layout(yaxis_tickprefix="R$ ")
 
             st.plotly_chart(fig, use_container_width=True)
+    
     # ==========================
-    # 📈 ABA 2 - GRÁFICOS
+    # 🧠 ABA 2 - INTERATIVO (FINAL)
     # ==========================
     with aba2:
-
-        st.subheader("📅 Comparação ao longo do tempo")
-
-        df_total["Mes"] = df_total["data"].dt.to_period("M").dt.to_timestamp()
-
-        # 🔥 separa corretamente
-        df_receita = (
-            df_total[df_total["CLASSIFICAÇÃO"] == "RECEITA"]
-            .groupby("Mes")["VALOR"]
-            .sum()
-            .reset_index(name="Receita")
-        )
-
-        df_despesa = (
-            df_total[df_total["CLASSIFICAÇÃO"] == "DESPESA"]
-            .groupby("Mes")["VALOR"]
-            .sum()
-            .reset_index(name="Despesa")
-        )
-
-        # 🔥 merge correto
-        df_mes = pd.merge(df_receita, df_despesa, on="Mes", how="outer").fillna(0)
-
-        # 🔥 resultado correto
-        df_mes["Resultado"] = df_mes["Receita"] - df_mes["Despesa"]
-
-        # ==========================
-        # 📈 Receita vs Despesa
-        # ==========================
-        fig = px.line(
-            df_mes,
-            x="Mes",
-            y=["Receita", "Despesa"]
-        )
-
-        fig.update_layout(
-            yaxis_tickprefix="R$ ",
-            xaxis_title="Mês",
-            yaxis_title="Valor"
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-        # ==========================
-        # 📊 Resultado
-        # ==========================
-        fig2 = px.bar(
-            df_mes,
-            x="Mes",
-            y="Resultado",
-            text="Resultado"
-        )
-
-        fig2.update_traces(
-            texttemplate="R$ %{text:,.0f}",
-            textposition="outside"
-        )
-
-        fig2.update_layout(
-            yaxis_tickprefix="R$ ",
-            xaxis_title="Mês",
-            yaxis_title="Resultado"
-            )
-
-        st.plotly_chart(fig2, use_container_width=True)
-    # ==========================
-    # 🧠 ABA 3 - INTERATIVO (FINAL)
-    # ==========================
-    with aba3:
 
         st.subheader("📊 Análise Interativa")
 
@@ -536,11 +484,11 @@ def dashboard_financeiro():
         df_interativo = df_total.copy()
 
         # 🔥 GARANTE COLUNA SUBCATEGORIA
-        if "SUBCATEGORIA" not in df_interativo.columns:
-            df_interativo["SUBCATEGORIA"] = "Outros"
+        if "subcategoria" not in df_interativo.columns:
+            df_interativo["subcategoria"] = "Outros"
 
-        df_interativo["SUBCATEGORIA"] = (
-            df_interativo["SUBCATEGORIA"]
+        df_interativo["subcategoria"] = (
+            df_interativo["subcategoria"]
             .fillna("Outros")
             .astype(str)
             .str.upper()
@@ -588,7 +536,7 @@ def dashboard_financeiro():
         # ==========================
         df_cat = (
             df_filtrado
-            .groupby("CATEGORIA", as_index=False)["VALOR"]
+            .groupby("categoria", as_index=False)["VALOR"]
             .sum()
             .sort_values(by="VALOR", ascending=False)
         )
@@ -599,7 +547,7 @@ def dashboard_financeiro():
 
         fig_cat.add_trace(go.Bar(
             x=df_cat["VALOR"],
-            y=df_cat["CATEGORIA"],
+            y=df_cat["categoria"],
             orientation='h',
             text=[f"R$ {v:,.2f}" for v in df_cat["VALOR"]],
             textposition='outside'
@@ -651,7 +599,7 @@ def dashboard_financeiro():
             # ==========================
             df_sub = (
                 df_filtrado
-                .groupby("SUBCATEGORIA", as_index=False)["VALOR"]
+                .groupby("subcategoria", as_index=False)["VALOR"]
                 .sum()
                 .sort_values(by="VALOR", ascending=False)
             )
@@ -660,7 +608,7 @@ def dashboard_financeiro():
 
             fig_sub.add_trace(go.Bar(
                 x=df_sub["VALOR"],
-                y=df_sub["SUBCATEGORIA"],
+                y=df_sub["subcategoria"],
                 orientation='h',
                 text=[f"R$ {v:,.2f}" for v in df_sub["VALOR"]],
                 textposition='outside'
@@ -691,9 +639,9 @@ def dashboard_financeiro():
         # ==========================
         if st.session_state.filtro_subcategoria:
             df_filtrado = df_filtrado[
-                df_filtrado["SUBCATEGORIA"] == st.session_state.filtro_subcategoria
+                df_filtrado["subcategoria"] == st.session_state.filtro_subcategoria
             ]
-            st.success(f"Subcategoria: {st.session_state.filtro_subcategoria}")
+            st.success(f"subcategoria: {st.session_state.filtro_subcategoria}")
 
         # ==========================
         # 💰 KPI
@@ -706,11 +654,11 @@ def dashboard_financeiro():
         # ==========================
         df_evo = (
             df_filtrado
-            .groupby("DATA", as_index=False)["VALOR"]
+            .groupby("data", as_index=False)["VALOR"]
             .sum()
         )
 
-        fig_evo = px.line(df_evo, x="DATA", y="VALOR", markers=True)
+        fig_evo = px.line(df_evo, x="data", y="VALOR", markers=True)
         fig_evo.update_layout(yaxis_tickprefix="R$ ")
 
         st.plotly_chart(fig_evo, use_container_width=True)
@@ -721,9 +669,9 @@ def dashboard_financeiro():
         st.markdown("### 📋 Detalhamento")
 
         df_tabela = df_filtrado.copy()
-        df_tabela["DATA"] = df_tabela["DATA"].dt.strftime("%d")
+        df_tabela["data"] = df_tabela["data"].dt.strftime("%d")
 
-        colunas = ["MÊS", "DATA", "CATEGORIA", "SUBCATEGORIA", "VALOR", "DESCRIÇÃO"]
+        colunas = ["mes", "data", "categoria", "subcategoria", "valor", "descricao"]
 
         st.dataframe(
             df_tabela[colunas]
@@ -752,7 +700,7 @@ def dashboard_financeiro():
         df_mes_atual = df_total[
             (df_total["data"].dt.month == hoje.month) &
             (df_total["data"].dt.year == hoje.year) &
-            (df_total["classificaçao"] == "DESPESA")
+            (df_total["classificacao"] == "DESPESA")
         ].copy()
         
         df_mes_atual["VALOR"] = pd.to_numeric(df_mes_atual["VALOR"], errors="coerce").fillna(0)
@@ -783,9 +731,9 @@ def dashboard_financeiro():
         df_outlier["VALOR"] = pd.to_numeric(df_outlier["VALOR"], errors="coerce").fillna(0)
 
         # média e desvio padrão (mais profissional)
-        stats = df_outlier.groupby("SUBCATEGORIA")["VALOR"].agg(["mean", "std"]).reset_index()
+        stats = df_outlier.groupby("subcategoria")["VALOR"].agg(["mean", "std"]).reset_index()
 
-        df_outlier = df_outlier.merge(stats, on="SUBCATEGORIA", how="left")
+        df_outlier = df_outlier.merge(stats, on="subcategoria", how="left")
 
         df_outlier["anomalia"] = df_outlier["VALOR"] > (df_outlier["mean"] + 2 * df_outlier["std"])
 
@@ -794,7 +742,7 @@ def dashboard_financeiro():
         if not anomalias.empty:
             for _, row in anomalias.iterrows():
                 st.error(
-                    f"🚨 {row['SUBCATEGORIA']} → R$ {row['VALOR']:,.2f} "
+                    f"🚨 {row['subcategoria']} → R$ {row['VALOR']:,.2f} "
                     f"(normal ~ R$ {row['mean']:,.2f})"
                 )
         else:
@@ -810,7 +758,7 @@ def dashboard_financeiro():
 
         df_mensal = (
             df_total[df_total["CLASSIFICAÇÃO"] == "DESPESA"]
-            .groupby(["Mes", "CATEGORIA", "SUBCATEGORIA"])["VALOR"]
+            .groupby(["Mes", "CATEGORIA", "subcategoria"])["VALOR"]
             .sum()
             .reset_index()
         )
@@ -828,7 +776,7 @@ def dashboard_financeiro():
             df_comp = pd.merge(
                 df_atual,
                 df_anterior,
-                on=["CATEGORIA", "SUBCATEGORIA"],
+                on=["CATEGORIA", "subcategoria"],
                 how="outer",
                 suffixes=("_atual", "_anterior")
             ).fillna(0)
@@ -863,7 +811,7 @@ def dashboard_financeiro():
             top = df_comp.sort_values(by="dif", ascending=False).head(5)
 
             st.dataframe(
-                top[["CATEGORIA", "SUBCATEGORIA", "dif", "pct"]]
+                top[["CATEGORIA", "subcategoria", "dif", "pct"]]
                 .rename(columns={
                     "dif": "Aumento (R$)",
                     "pct": "% aumento"
