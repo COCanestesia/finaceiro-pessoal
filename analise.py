@@ -49,42 +49,69 @@ def mostrar_kpis(df):
 
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("💰 Receita", f"R$ {br(receita)}")
+    FUNDO = "#1E1E1E"
+    VERDE = "#00C853"
+    VERMELHO = "#FF4B4B"
+    CINZA = "#AAAAAA"
 
-    col2.metric(
-        "💸 Despesa",
-        f"R$ {br(despesa)}",
-        f"{percentual:.1f}% da receita"
-    )
+    # 💰 RECEITA
+    col1.markdown(f"""
+    <div style="
+        background:{FUNDO};
+        padding:20px;
+        border-radius:12px;
+        border-left:5px solid {VERDE};
+    ">
+        <div style="color:{CINZA}; font-size:13px;">💰 Receita</div>
+        <div style="font-size:26px; font-weight:700; color:{VERDE};">
+            R$ {br(receita)}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 💸 DESPESA
+    col2.markdown(f"""
+    <div style="
+        background:{FUNDO};
+        padding:20px;
+        border-radius:12px;
+        border-left:5px solid {VERMELHO};
+    ">
+        <div style="color:{CINZA}; font-size:13px;">💸 Despesa</div>
+        <div style="font-size:26px; font-weight:700; color:{VERMELHO};">
+            R$ {br(despesa)}
+        </div>
+        <div style="font-size:12px; color:{CINZA}; margin-top:5px;">
+            {percentual:.1f}% da receita
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # 📊 RESULTADO
     if resultado >= 0:
-        cor = "#00C853"
+        cor = VERDE
         status = "Lucro"
         emoji = "📈"
     else:
-        cor = "#FF4B4B"
+        cor = VERMELHO
         status = "Prejuízo"
         emoji = "📉"
 
-    col3.markdown(
-        f"""
-        <div style="
-            background:#1E1E1E;
-            padding:15px;
-            border-radius:10px;
-            text-align:center;
-        ">
-            <div style="font-size:14px; color:#AAA;">{emoji} Resultado</div>
-            <div style="font-size:22px; font-weight:700; color:{cor};">
-                R$ {br(resultado)}
-            </div>
-            <div style="font-size:12px; color:#AAA;">
-                {status}
-            </div>
+    col3.markdown(f"""
+    <div style="
+        background:{FUNDO};
+        padding:20px;
+        border-radius:12px;
+        border-left:5px solid {cor};
+    ">
+        <div style="color:{CINZA}; font-size:13px;">{emoji} Resultado</div>
+        <div style="font-size:26px; font-weight:700; color:{cor};">
+            R$ {br(resultado)}
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+        <div style="font-size:12px; color:{CINZA}; margin-top:5px;">
+            {status}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     return receita, despesa, resultado
