@@ -186,7 +186,7 @@ def dashboard_financeiro():
         # ==========================
         # 📊 GRÁFICOS LADO A LADO
         # ==========================
-        col1, col2 = st.columns([2, 1])
+        col1 = st.columns([1])
 
         # 📊 Barra (substitui a pizza)
         with col1:
@@ -235,48 +235,6 @@ def dashboard_financeiro():
 
         st.plotly_chart(fig, use_container_width=True)
 
-        # 📊 Barra com vermelho + destaque
-        with col2:
-            top = df_cat.iloc[0]
-
-            html = f"""
-            <div style="
-                background:#1E1E1E;
-                padding:20px;
-                border-radius:12px;
-                border-left:5px solid #FF4B4B;
-            ">
-
-                <div style="
-                    font-size:12px;
-                    color:#AAAAAA;
-                    letter-spacing:1px;
-                ">
-                    🚨 MAIOR GASTO
-                </div>
-
-                <div style="
-                    font-size:18px;
-                    font-weight:600;
-                    margin-top:8px;
-                    color:#FFFFFF;
-                ">
-                    {top['categoria']}
-                </div>
-
-                <div style="
-                    font-size:28px;
-                    font-weight:700;
-                    color:#FF4B4B;
-                    margin-top:5px;
-                ">
-                    R$ {top['valor']:,.2f}
-                </div>
-
-            </div>
-            """
-
-            st.markdown(html, unsafe_allow_html=True)
         # ==========================
         # 📋 TABELA DETALHADA
         # ==========================
