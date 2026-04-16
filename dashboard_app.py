@@ -212,33 +212,6 @@ def dashboard_financeiro():
 
         st.plotly_chart(fig_bar_cat, use_container_width=True)
 
-        # 📊 Barra com vermelho + destaque
-        with col2:
-            max_valor = df_cat["valor"].max()
-            cores = ["#8B0000" if v == max_valor else "#FF4B4B" for v in df_cat["valor"]]
-
-            fig_bar = px.bar(
-                df_cat,
-                x="categoria",
-                y="valor",
-                text="valor"
-            )
-
-            fig_bar.update_traces(
-                marker_color=cores,
-                texttemplate="R$ %{text:,.0f}",
-                textposition="outside",
-                hovertemplate="<b>%{x}</b><br>R$ %{y:,.2f}<extra></extra>"
-            )
-
-            fig_bar.update_layout(
-                yaxis_tickprefix="R$ ",
-                xaxis_title="",
-                yaxis_title=""
-            )
-
-            st.plotly_chart(fig_bar, use_container_width=True)
-
         # ==========================
         # 📋 TABELA DETALHADA
         # ==========================
