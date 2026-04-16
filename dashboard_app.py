@@ -237,22 +237,20 @@ def dashboard_financeiro():
 
         # 📊 Barra com vermelho + destaque
         with col2:
-            
             top = df_cat.iloc[0]
-            
+
             html = f"""
             <div style="
-                background: linear-gradient(135deg, #1E1E1E, #2A2A2A);
-                padding:22px;
-                border-radius:16px;
-                border:1px solid #333;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                background:#1E1E1E;
+                padding:20px;
+                border-radius:12px;
+                border-left:5px solid #FF4B4B;
             ">
 
                 <div style="
                     font-size:12px;
                     color:#AAAAAA;
-                    letter-spacing:0.5px;
+                    letter-spacing:1px;
                 ">
                     🚨 MAIOR GASTO
                 </div>
@@ -270,13 +268,14 @@ def dashboard_financeiro():
                     font-size:28px;
                     font-weight:700;
                     color:#FF4B4B;
-                    margin-top:12px;
+                    margin-top:5px;
                 ">
                     R$ {top['valor']:,.2f}
                 </div>
 
             </div>
             """
+
             st.markdown(html, unsafe_allow_html=True)
         # ==========================
         # 📋 TABELA DETALHADA
