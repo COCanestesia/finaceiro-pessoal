@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 
 # ================================
@@ -12,7 +13,7 @@ def br(valor):
 
 
 # ================================
-# 📊 KPIs PRINCIPAIS (CORRIGIDO)
+# 📊 KPIs PRINCIPAIS (PADRÃO CORRETO)
 # ================================
 def mostrar_kpis(df):
 
@@ -20,34 +21,36 @@ def mostrar_kpis(df):
         st.warning("Sem dados disponíveis")
         return 0, 0, 0
 
-    # ================================
-    # 🔥 GARANTIR PADRÃO
-    # ================================
-    df["Classificação"] = df["Classificação"].astype(str).str.upper().str.strip()
-    df["Valor"] = df["Valor"].fillna(0)
+    # 🔥 GARANTE PADRÃO (MINÚSCULO)
+    df = df.copy()
 
-    # ================================
-    # 🔥 VALOR AJUSTADO (CORRETO)
-    # ================================
-    df["Valor_Ajustado"] = df["Valor"]
+    df["classificacao"] = (
+        df.get("classificacao", "")
+        .astype(str)
+        .str.upper()
+        .str.strip()
+    )
 
-    df.loc[df["Classificação"] == "DESPESA", "Valor_Ajustado"] *= -1
+    df["valor"] = pd.to_numeric(
+        df.get("valor", 0),
+        errors="coerce"
+    ).fillna(0)
 
-    # ================================
-    # 📊 CÁLCULOS CORRETOS
-    # ================================
-    receita = df.loc[df["Classificação"] == "RECEITA", "Valor"].sum()
-    despesa = df.loc[df["Classificação"] == "DESPESA", "Valor"].sum()
-    resultado = df["Valor_Ajustado"].sum()
+    # 🔥 VALOR AJUSTADO
+    df["valor_ajustado"] = df["valor"]
+    df.loc[df["classificacao"] == "DESPESA", "valor_ajustado"] *= -1
+
+    # 📊 CÁLCULOS
+    receita = df.loc[df["classificacao"] == "RECEITA", "valor"].sum()
+    despesa = df.loc[df["classificacao"] == "DESPESA", "valor"].sum()
+    resultado = df["valor_ajustado"].sum()
 
     percentual = (despesa / receita * 100) if receita > 0 else 0
 
     col1, col2, col3 = st.columns(3)
 
-    # 💰 RECEITA
     col1.metric("💰 Receita", f"R$ {br(receita)}")
 
-    # 💸 DESPESA
     col2.metric(
         "💸 Despesa",
         f"R$ {br(despesa)}",
