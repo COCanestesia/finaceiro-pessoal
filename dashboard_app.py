@@ -186,7 +186,7 @@ def dashboard_financeiro():
         # ==========================
         # 📊 GRÁFICOS LADO A LADO
         # ==========================
-        col1 = st.columns([1])
+        col1, = st.columns([1])
 
         # 📊 Barra (substitui a pizza)
         with col1:
