@@ -184,9 +184,9 @@ def dashboard_financeiro():
             """, unsafe_allow_html=True)
 
         # ==========================
-        # 📊 GRÁFICOS LADO A LADO
+        # 📊 GRÁFICOS 
         # ==========================
-        col1, col2 = st.columns(2)
+        col1 = st.columns(1)
 
         # 📊 Barra (substitui a pizza)
         with col1:
