@@ -33,8 +33,8 @@ def dashboard_financeiro():
 
     # Filtrar mês e ano
     df = df_total[
-        (df_total["DATA"].dt.month == mes) &
-        (df_total["DATA"].dt.year == ano)
+        (df_total["data"].dt.month == mes) &
+        (df_total["data"].dt.year == ano)
     ].copy()  # 🔹 usar .copy() evita warning do pandas
 
     # 🔹 Corrigir a coluna VALOR para float
@@ -461,7 +461,7 @@ def dashboard_financeiro():
 
         st.subheader("📅 Comparação ao longo do tempo")
 
-        df_total["Mes"] = df_total["DATA"].dt.to_period("M").dt.to_timestamp()
+        df_total["Mes"] = df_total["data"].dt.to_period("M").dt.to_timestamp()
 
         # 🔥 separa corretamente
         df_receita = (
@@ -750,11 +750,11 @@ def dashboard_financeiro():
         dias_mes = calendar.monthrange(hoje.year, hoje.month)[1]
 
         df_mes_atual = df_total[
-            (df_total["DATA"].dt.month == hoje.month) &
-            (df_total["DATA"].dt.year == hoje.year) &
-            (df_total["CLASSIFICAÇÃO"] == "DESPESA")
+            (df_total["data"].dt.month == hoje.month) &
+            (df_total["data"].dt.year == hoje.year) &
+            (df_total["classificaçao"] == "DESPESA")
         ].copy()
-
+        
         df_mes_atual["VALOR"] = pd.to_numeric(df_mes_atual["VALOR"], errors="coerce").fillna(0)
 
         gasto_atual = df_mes_atual["VALOR"].sum()
@@ -806,7 +806,7 @@ def dashboard_financeiro():
         st.markdown("---")
         st.subheader("📈 Análise de Variação")
  
-        df_total["Mes"] = df_total["DATA"].dt.to_period("M").dt.to_timestamp()
+        df_total["Mes"] = df_total["data"].dt.to_period("M").dt.to_timestamp()
 
         df_mensal = (
             df_total[df_total["CLASSIFICAÇÃO"] == "DESPESA"]
@@ -843,8 +843,8 @@ def dashboard_financeiro():
 
             for _, row in df_comp.iterrows():
 
-                cat = row["CATEGORIA"]
-                sub = row["SUBCATEGORIA"]
+                cat = row["categoria"]
+                sub = row["subcategoria"]
                 dif = row["dif"]
                 pct = row["pct"]
  
