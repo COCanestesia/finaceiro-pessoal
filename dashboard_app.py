@@ -142,7 +142,7 @@ def dashboard_financeiro():
         # ==========================
         # 📊 PARA ONDE VAI O DINHEIRO
         # ==========================
-        df_cat = df[df[""] == "DESPESA"].groupby("categoria")["valor"].sum().reset_index()
+        df_cat = df[df["classificacao"] == "DESPESA"].groupby("categoria")["valor"].sum().reset_index()
         df_cat = df_cat.sort_values(by="valor", ascending=False)
 
         total_despesa = df_cat["valor"].sum()
