@@ -61,12 +61,16 @@ def calcular_saldos(df):
 
     for _, row in df.iterrows():
 
-        # 🔥 só entra pago
+        # 🔥 só considera pago
         status = str(row.get("status", "")).upper()
         if status != "PAGO":
             continue
 
-        valor = abs(float(row.get("valor", 0)))
+        try:
+            valor = abs(float(row.get("valor", 0)))
+        except:
+            valor = 0.0
+
         classificacao = str(row.get("classificacao", "")).upper()
         conta = str(row.get("conta", "")).upper()
 
@@ -75,20 +79,19 @@ def calcular_saldos(df):
         # =========================
         if "TRANSFER" in conta:
 
-            # destino (banco)
             if "(" in conta:
                 banco = conta.split("(")[1].replace(")", "").strip()
 
                 if banco in saldos:
                     if classificacao == "RECEITA":
                         saldos[banco] += valor
-                    else:
+                    elif classificacao == "DESPESA":
                         saldos[banco] -= valor
 
             continue
 
         # =========================
-        # 💵 CAIXA (ESPÉCIE)
+        # 💵 ESPÉCIE (CAIXA)
         # =========================
         if "ESPÉCIE" in conta or "ESPECIE" in conta:
 
