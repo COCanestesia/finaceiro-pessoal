@@ -92,9 +92,9 @@ def calcular_saldos(df):
             conta_nome = "Dinheiro (Caixa físico)"
 
         # 💰 APLICA
-        if classificacao == "RECEITA":
+        if "RECEITA" in classificacao:
             saldos[conta_nome] += valor
-        elif classificacao == "DESPESA":
+        elif "DESPESA" in classificacao:
             saldos[conta_nome] -= valor
 
     return saldos
@@ -160,5 +160,7 @@ def gerar_alertas_inteligentes(df):
         })
 
     avisos.sort(key=lambda x: x["risco"], reverse=True)
+
+    return avisos
 
     return avisos
