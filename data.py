@@ -62,15 +62,12 @@ def calcular_saldos(df):
         "Banco do Brasil": 0.0
     }
 
+    df = df.drop_duplicates()  # 🔥 evita duplicação
+
     for _, row in df.iterrows():
 
-        status = str(row.get("status", "")).strip().upper()
         classificacao = str(row.get("classificacao", "")).strip().upper()
         conta = str(row.get("conta", "")).strip().upper()
-
-        # 🔥 CORREÇÃO AQUI
-        if status and not status.startswith("PAG"):
-            continue
 
         try:
             valor = float(row.get("valor", 0))
@@ -79,7 +76,11 @@ def calcular_saldos(df):
 
         valor = abs(valor)
 
-        # 🏦 IDENTIFICA CONTA
+        # 🔁 ignora transferência
+        if "TRANSFER" in conta:
+            continue
+
+        # 🏦 identifica conta
         if "NUBANK" in conta:
             conta_nome = "Nubank"
         elif "ITAU" in conta or "ITAÚ" in conta:
@@ -91,7 +92,7 @@ def calcular_saldos(df):
         else:
             conta_nome = "Dinheiro (Caixa físico)"
 
-        # 💰 APLICA
+        # 💰 aplica
         if "RECEITA" in classificacao:
             saldos[conta_nome] += valor
         elif "DESPESA" in classificacao:
@@ -160,7 +161,5 @@ def gerar_alertas_inteligentes(df):
         })
 
     avisos.sort(key=lambda x: x["risco"], reverse=True)
-
-    return avisos
 
     return avisos
