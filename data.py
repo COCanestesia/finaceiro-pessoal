@@ -54,42 +54,55 @@ def calcular_saldos(df):
     if df is None or df.empty:
         return {}
 
-    saldos = {}
+    bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
+
+    saldos = {b: 0.0 for b in bancos}
+    saldos["Dinheiro (Caixa físico)"] = 0.0
 
     for _, row in df.iterrows():
 
+        # 🔥 só entra pago
         status = str(row.get("status", "")).upper()
         if status != "PAGO":
             continue
 
         valor = abs(float(row.get("valor", 0)))
+        classificacao = str(row.get("classificacao", "")).upper()
+        conta = str(row.get("conta", "")).upper()
 
-        tipo = str(row.get("tipo", "")).upper()
-        origem = row.get("conta_origem")
-        destino = row.get("conta_destino")
-
-        # inicializa contas
-        if origem and origem not in saldos:
-            saldos[origem] = 0
-        if destino and destino not in saldos:
-            saldos[destino] = 0
-
-        # 💰 RECEITA
-        if tipo == "RECEITA":
-            if destino:
-                saldos[destino] += valor
-
-        # 💸 DESPESA
-        elif tipo == "DESPESA":
-            if origem:
-                saldos[origem] -= valor
-
+        # =========================
         # 🔁 TRANSFERÊNCIA
-        elif tipo == "TRANSFERENCIA":
-            if origem:
-                saldos[origem] -= valor
-            if destino:
-                saldos[destino] += valor
+        # =========================
+        if "TRANSFER" in conta:
+
+            # destino (banco)
+            if "(" in conta:
+                banco = conta.split("(")[1].replace(")", "").strip()
+
+                if banco in saldos:
+                    if classificacao == "RECEITA":
+                        saldos[banco] += valor
+                    else:
+                        saldos[banco] -= valor
+
+            continue
+
+        # =========================
+        # 💵 CAIXA (ESPÉCIE)
+        # =========================
+        if "ESPÉCIE" in conta or "ESPECIE" in conta:
+
+            if classificacao == "RECEITA":
+                saldos["Dinheiro (Caixa físico)"] += valor
+            elif classificacao == "DESPESA":
+                saldos["Dinheiro (Caixa físico)"] -= valor
+
+        else:
+            # fallback (segurança)
+            if classificacao == "RECEITA":
+                saldos["Dinheiro (Caixa físico)"] += valor
+            elif classificacao == "DESPESA":
+                saldos["Dinheiro (Caixa físico)"] -= valor
 
     return saldos
 
