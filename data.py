@@ -54,33 +54,42 @@ def calcular_saldos(df):
     if df is None or df.empty:
         return {}
 
-    bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
-
-    saldos = {b: 0.0 for b in bancos}
-    saldos["Dinheiro (Caixa físico)"] = 0.0
+    saldos = {}
 
     for _, row in df.iterrows():
 
-        valor = float(row["valor"])
+        status = str(row.get("status", "")).upper()
+        if status != "PAGO":
+            continue
 
-        if row["classificacao"] == "DESPESA":
-            valor = -abs(valor)
+        valor = abs(float(row.get("valor", 0)))
 
-        conta = str(row["conta"])
+        tipo = str(row.get("tipo", "")).upper()
+        origem = row.get("conta_origem")
+        destino = row.get("conta_destino")
 
-        if "TRANSFERÊNCIA BANCÁRIA" in conta and "(" in conta:
-            try:
-                banco = conta.split("(")[1].replace(")", "").strip()
+        # inicializa contas
+        if origem and origem not in saldos:
+            saldos[origem] = 0
+        if destino and destino not in saldos:
+            saldos[destino] = 0
 
-                if banco in saldos:
-                    saldos[banco] += valor
-                else:
-                    saldos["Dinheiro (Caixa físico)"] += valor
+        # 💰 RECEITA
+        if tipo == "RECEITA":
+            if destino:
+                saldos[destino] += valor
 
-            except:
-                saldos["Dinheiro (Caixa físico)"] += valor
-        else:
-            saldos["Dinheiro (Caixa físico)"] += valor
+        # 💸 DESPESA
+        elif tipo == "DESPESA":
+            if origem:
+                saldos[origem] -= valor
+
+        # 🔁 TRANSFERÊNCIA
+        elif tipo == "TRANSFERENCIA":
+            if origem:
+                saldos[origem] -= valor
+            if destino:
+                saldos[destino] += valor
 
     return saldos
 
