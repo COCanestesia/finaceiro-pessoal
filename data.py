@@ -54,58 +54,48 @@ def calcular_saldos(df):
     if df is None or df.empty:
         return {}
 
-    bancos = ["Itaú", "Bradesco", "Banco do Brasil", "Nubank"]
-
-    saldos = {b: 0.0 for b in bancos}
-    saldos["Dinheiro (Caixa físico)"] = 0.0
+    saldos = {
+        "Dinheiro (Caixa físico)": 0.0,
+        "Nubank": 0.0,
+        "Itaú": 0.0,
+        "Bradesco": 0.0,
+        "Banco do Brasil": 0.0
+    }
 
     for _, row in df.iterrows():
 
-        # 🔥 só considera pago
-        status = str(row.get("status", "")).upper()
-        if status != "PAGO":
+        status = str(row.get("status", "")).strip().upper()
+        classificacao = str(row.get("classificacao", "")).strip().upper()
+        conta = str(row.get("conta", "")).strip().upper()
+
+        # 🔥 CORREÇÃO AQUI
+        if status and not status.startswith("PAG"):
             continue
 
         try:
-            valor = abs(float(row.get("valor", 0)))
+            valor = float(row.get("valor", 0))
         except:
             valor = 0.0
 
-        classificacao = str(row.get("classificacao", "")).upper()
-        conta = str(row.get("conta", "")).upper()
+        valor = abs(valor)
 
-        # =========================
-        # 🔁 TRANSFERÊNCIA
-        # =========================
-        if "TRANSFER" in conta:
-
-            if "(" in conta:
-                banco = conta.split("(")[1].replace(")", "").strip()
-
-                if banco in saldos:
-                    if classificacao == "RECEITA":
-                        saldos[banco] += valor
-                    elif classificacao == "DESPESA":
-                        saldos[banco] -= valor
-
-            continue
-
-        # =========================
-        # 💵 ESPÉCIE (CAIXA)
-        # =========================
-        if "ESPÉCIE" in conta or "ESPECIE" in conta:
-
-            if classificacao == "RECEITA":
-                saldos["Dinheiro (Caixa físico)"] += valor
-            elif classificacao == "DESPESA":
-                saldos["Dinheiro (Caixa físico)"] -= valor
-
+        # 🏦 IDENTIFICA CONTA
+        if "NUBANK" in conta:
+            conta_nome = "Nubank"
+        elif "ITAU" in conta or "ITAÚ" in conta:
+            conta_nome = "Itaú"
+        elif "BRADESCO" in conta:
+            conta_nome = "Bradesco"
+        elif "BANCO DO BRASIL" in conta:
+            conta_nome = "Banco do Brasil"
         else:
-            # fallback (segurança)
-            if classificacao == "RECEITA":
-                saldos["Dinheiro (Caixa físico)"] += valor
-            elif classificacao == "DESPESA":
-                saldos["Dinheiro (Caixa físico)"] -= valor
+            conta_nome = "Dinheiro (Caixa físico)"
+
+        # 💰 APLICA
+        if classificacao == "RECEITA":
+            saldos[conta_nome] += valor
+        elif classificacao == "DESPESA":
+            saldos[conta_nome] -= valor
 
     return saldos
 
